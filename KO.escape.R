@@ -6,7 +6,7 @@ library(readxl)
 
 
 
-KO.abundance <- read_excel("Table B3+B4 Abundance 2002-2020 (for FWCP).xlsx", 
+KO.abundance <- read_excel("Table B3+B4 Abundance 2002-2020 (for FWCP)_KP.xlsx", 
                            sheet="Summary Sheet",n_max = 32)
 
 
@@ -66,8 +66,38 @@ ggplot(long.abun.index)+
   theme(axis.text.x = element_text(angle = 60, hjust = 1), 
         panel.grid.minor = element_blank())+
   scale_y_continuous(breaks=seq(0,max(long.abun$count, na.rm=T), 50000))+
-  geom_label(data = df, aes(x = nyear, y=350000, label=dom), size=3)+
+  #geom_label(data = df, aes(x = nyear, y=350000, label=dom), size=3)+
   labs(title = "Index Streams",x="Year", y="Count", colour = "Index \nStream")
+
+
+
+ggplot(long.abun.index)+
+  geom_line(aes(x=nyear, y=count, colour=NAME),
+            size=2, na.rm=F)+
+  geom_point(aes(x=nyear, y=count, colour=NAME), size = 5, shape="x")+
+  theme_bw()+
+  scale_x_continuous(breaks =seq(min(long.abun$year),max(long.abun$year),1))+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        panel.grid.minor = element_blank())+
+  scale_y_continuous(breaks=seq(0,max(long.abun$count, na.rm=T), 50000))+
+  #geom_label(data = df, aes(x = nyear, y=350000, label=dom), size=3)+
+  labs(title = "Index Streams",x="Year", y="Count", colour = "Index \nStream")
+
+
+ggplot(long.abun.index, aes(x=year, y=count, fill=NAME))+
+  geom_bar(position="stack", stat="identity")
+
+ggplot(long.abun.index, aes(x=year, y=count, fill=Watershed))+
+  geom_bar(position="stack", stat="identity")+
+  theme_bw()+
+  #scale_x_continuous(breaks =seq(min(long.abun$year),2022,1))+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1), 
+        panel.grid.minor = element_blank())+
+  scale_y_continuous(breaks=seq(0,500000, na.rm=T), 50000)+
+  #geom_label(data = df, aes(x = nyear, y=350000, label=dom), size=3)+
+  labs(title = "Index Streams",x="Year", y="Count", fill = "Major \nWatershed")
+
+
 
 
 #bar chart:
