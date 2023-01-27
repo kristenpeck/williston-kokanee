@@ -23,7 +23,9 @@ site.GN21 <- read_excel("Williston_Gillnet_Set_data_20211014_revised_KP.xlsx",
                                  "numeric","numeric","text","text","text"))
 fish.GN21 <- read_excel("Williston_Gillnet_Set_data_20211014_revised_KP.xlsx",
                    sheet="Fish Data") %>% 
-              select(-c("...22","...23","...24"))
+  select(-c("...22","...23","...24")) %>%
+  mutate(ifelse(`Weight (g)` <=300,NA,`Weight (g)`))#the measurement of fish below 300mm likely off 
+              
 
 GN2021 <- site.GN21 %>% 
   left_join(fish.GN21, by=c("Site","Net"="Net#")) %>% 
@@ -42,6 +44,22 @@ GN2021 <- site.GN21 %>%
 
 str(GN2021)
   
+# At Teare Crk they set an extra two nets in 0m and 25m that 
+#   both were either inefficient or partially lost. 
+#   Exclude at least the 25m net for any analysis and view net 1 with caution
+
+exclude <- GN2021$Site %in% "Teare Creek" & GN2021$Net %in% "6"
+
+GN2021 <- GN2021 %>% 
+  filter(!exclude)
+
+# At Forebay, Floating RIC nets were mistakenly used and pulled right away. 
+#   Should exclude these nets for any CPUE since they did not sit out 
+#   overnight. Will leave in for now.
+
+#view catch by net per site (note that NA is NoFishCaught)
+xtabs(~sp+net.depth+Site, data=GN2021, exclude=NULL, na.action=na.pass)
+
 
 
 #2008 data
@@ -60,11 +78,8 @@ GN2008 <- read_excel("Williston Fish Data (DS Working- corrected) 2008_KP.xls",
          wt=`Weight (g)`,Sex,Maturity,age=Age,comments=Comments) %>% 
   mutate(net.type="RIC6",net.depth=0.5)
 
-
-str(GN2008)
-
-rbind(GN2008,GN2021)
-
+#view catch by net per site (no nets had NFC in 2008)
+xtabs(~sp+Net+Site, data=GN2008, exclude=NULL, na.action=na.pass)
 
 
 
@@ -88,7 +103,11 @@ GN2000 <- site.GN00 %>%
          wt=Weight,Sex,Maturity,age=Age,comments=Comment) %>% 
   mutate(net.type="RIC6",net.depth=0)
   
-colnames(GN2000)
+#view catch by net per site (no nets had NFC in 2000)
+xtabs(~sp+Net+Site, data=GN2000, exclude=NULL, na.action=na.pass)
+
+
+
 
 #combine three years of data
 
@@ -99,21 +118,46 @@ GN <- rbind(GN2000,GN2008,GN2021) %>%
   mutate(Maturity=recode(Maturity, "imm"="IM","IMM"="IM","MTC"="MT",
                          "?"="UN","U"="UN")) %>% 
   mutate(ageN = as.numeric(recode(age,"1+"="1","2+"="2",
-                                  "3+"="3","4+"="4","5+"="5")))
+                                  "3+"="3","4+"="4","5+"="5"))) %>% 
+  mutate(yearF = as.factor(year))
 
-#write_csv(GN, "check.GN.allyrs.csv", na="")
+#remove transient objects
+rm(fish.GN00,fish.GN21,site.GN00,site.GN21, exclude)
 
 
-#check KO age scatter by year
+
+#which nets had NFC:
+GN[which(is.na(GN$sp)),c("Site","start.datetime","Net","net.depth","FL")]
+
+#Number of each sp caught by year (note that NA = NFC)
+xtabs(~sp+year, data=GN, exclude=NULL, na.action=na.pass)
+
+#number of each sp measured for FL
+xtabs(~sp+year, data=GN[!is.na(GN$FL),], exclude=NULL, na.action=na.pass)
+
+
+
+#check KO age scatter by year and sex. NOTE that 2021 is only estimated ages still
 
 ggplot(GN[which(GN$sp %in% "KO"),])+
   geom_jitter(aes(x=ageN,y=FL, col=as.factor(year)))+
-  facet_wrap(~Sex)
+  facet_wrap(~Sex)+
+  labs(col="year", title="KO")
+
+#check KO age scatter by year and Maturity. NOTE that 2021 is only estimated ages still
+
+ggplot(GN[which(GN$sp %in% "KO"),])+
+  geom_jitter(aes(x=ageN,y=FL, col=as.factor(year)))+
+  facet_wrap(~Maturity) 
+# Likely some mis-IDs of maturity in here. All "M" should likely be "MT"
 
 
-rm(fish.GN00,fish.GN21,site.GN00,site.GN21)
+#plot FL and Age by species
+ggplot(GN[!is.na(GN$FL),])+
+  geom_jitter(aes(x=ageN,y=FL, col=sp))+
+  facet_wrap(~year, nrow=3)
+#note that only estimated KO ages avail for 2021
 
-# GN maps #
 
 
 
@@ -168,11 +212,13 @@ TR2021 <- fish.TR21 %>%
   select(year=Year,Station_ID = Station_Code,Trawl_num,start.date,
          start.Latitude,start.Longitude,end.Latitude,end.Longitude,
          sp=Species,FL=Fork_Length,wt=Weight, sex=Gender,Maturity) %>% 
-  mutate(age=ifelse(FL<100, 0, #age FL cutoffs in ReadMe_DJ in gillnet datasheet
-                    ifelse(100<=FL&FL<155,1,
-                           ifelse(FL>=155&FL<197,2,
-                                  ifelse(FL>=197,3,NA)))))
-
+  mutate(age=ifelse(sp%in%"Kokanee"&FL<100, 0, 
+                    ifelse(sp%in%"Kokanee"&100<=FL&FL<155,1,
+                           ifelse(sp%in%"Kokanee"&FL>=155&FL<197,2,
+                                  ifelse(sp%in%"Kokanee"&FL>=197,3,NA)))))
+# age FL cutoffs for KO in ReadMe_DJ in gillnet datasheet
+# In prelim report mention cut-off of age 0s at 65 mm in acoustic data?
+# will replace with confirmed ages when have them
 
 
 
@@ -252,34 +298,148 @@ str(TR2000)
 TR2000short <- TR2000 %>% 
   select(-c("start.datetime","end.datetime","layers","distance_m",
             "total.mins","comments", "boat.speed_ms"))
-names(TR2000short)
-names(TR2021)
 
 TR <- rbind(TR2000short,TR2021) %>% 
   mutate(sp=recode(sp,"Kokanee"="KO","Lake Whitefish"="LW",
                    "Minnow (General)"="C")) %>% 
-  mutate(Maturity=recode(Maturity,"Immature"="IM"))
+  mutate(Maturity=recode(Maturity,"Immature"="IM")) %>% 
+  mutate(yearF = as.factor(year))
 
-
-str(TR)
 unique(TR$age)
 
+str(TR)
+
+
+#which trawls had NFC:
+TR[which(is.na(TR$sp)),c("Station_ID","start.date","Trawl_num",
+                         "sp")]
+
+#Number of each sp caught by year (note that NA = NFC)
+xtabs(~sp+year, data=TR, exclude=NULL, na.action=na.pass)
+
+#number of each sp measured for FL
+xtabs(~sp+year, data=TR[!is.na(TR$FL),], exclude=NULL, na.action=na.pass)
+
+
+
+#check KO age scatter by year and sex. NOTE that 2021 is only estimated ages still
 
 ggplot(TR[which(TR$sp %in% "KO"),])+
-  geom_histogram(aes(x=FL, fill=as.factor(age)), binwidth = 3) +
-  facet_wrap(~year, nrow=2)
-  
-ggplot(GN[which(GN$sp %in% "KO"),])+
-  geom_histogram(aes(x=FL, fill=as.factor(ageN)), binwidth = 3) +
-  facet_wrap(~year, nrow=2)
+  geom_jitter(aes(x=age,y=FL, col=yearF))+
+  facet_wrap(~sex)+
+  labs(col="year", title="KO")
+
+#check KO age scatter by year and Maturity. NOTE that 2021 is only estimated ages still
+
+ggplot(TR[which(TR$sp %in% "KO"),])+
+  geom_jitter(aes(x=age,y=FL, col=yearF))+
+  facet_wrap(~Maturity)+
+  labs(col="year", title="KO") 
+# All "M" should likely be "MT" at the time these surveys took place?
+
+
+#plot FL and Age by species
+ggplot(TR[!is.na(TR$FL),])+
+  geom_jitter(aes(x=age,y=FL, col=sp))+
+  facet_wrap(~year, nrow=3)
+#note that only estimated KO ages avail for 2021
+
+
+
+
+
+# GN maps #
+
+str(GN)
+
+GN.pts <- st_as_sf(GN, coords = c("Longitude","Latitude"),crs=4326)  #assume WGS84 for all yrs
+
+
+#this is setting the default colours for all mapviews
+mapviewOptions(vector.palette = colorRampPalette(c("white", "cornflowerblue", "grey60")))
+
+
+GN.map <- mapview(list(GN.pts), 
+                  zcol="yearF", 
+                  #col.lines = c("snow", "grey"),
+                  layer.name = "year")
+#legend = list(TRUE, FALSE),
+#lwd=2) 
+print(GN.map)
+
+
+# TR maps #
+#could not F***ing figure pivot_longer in R, so exported, fixed and re-imported
+# to get lats and longs in same columns
+TRmapping <- read_excel("TR.transform.xls") %>% 
+  mutate(yearF = as.factor(yearF)) 
+str(TRmapping)
+
+
+TR.pts <- st_as_sf(TRmapping, coords = c("Longitude","Latitude"),
+                         crs=4326)  #assume WGS84 for all yrs
+TR.lines<- TR.pts %>%
+  group_by(yearF, Station_ID, Trawl_num) %>%
+  dplyr::summarize() %>%
+  st_cast("LINESTRING")
+
+TR.map <- mapview(list(TR.pts,TR.lines), 
+                  zcol="yearF", 
+                  col.lines = c("snow", "grey"),
+                  layer.name = "year",
+                  legend = list(T, F))
+
+print(TR.map)
+# fix points for clearwater trawls - off for both 2000 and 2021
+
+
+GNTR.map <- mapview(list(GN.pts,TR.lines), 
+                    zcol="yearF", 
+                    col.lines = c("snow", "grey"),
+                    layer.name = "GNyear",
+                    legend = list(T, F),
+                    lwd=2) 
+print(GNTR.map)
+
 
 
 #### Combine all GN and TR catch ####
 
-names(GN)
-names(TR)
+names(GNshort)
+
+GNshort <- GN %>% 
+  mutate(start.date = as_date(start.datetime), method="GN") %>% 
+  select(method,year,site=Site,start.date,net.trawl.number=Net,sp,FL,wt,sex=Sex,
+         mat=Maturity,age=ageN)
+TRshort <- TR %>% 
+  mutate(method="TR") %>% 
+  select(method,year,site=Station_ID,start.date,net.trawl.number=Trawl_num,sp,FL,wt,sex,
+         mat=Maturity, age)
 
 
+GNTR <- rbind(GNshort,TRshort) %>% 
+  mutate(yearF = as.factor(year)) %>% 
+  mutate(wt = as.numeric(wt)) %>% 
+  mutate(k = 10000*(wt/FL*3))
+
+GNTR[which(!is.numeric(GNTR$wt)),]
+
+#KO ages from trawl and gillnet combined:
+ggplot(GNTR[which(GNTR$sp %in%"KO"),]) +
+  geom_histogram(aes(x=FL, fill=as.factor(age)), binwidth=5,position = "stack")+
+  facet_wrap(~year, nrow=3)
+#some very old kokanee in 2000 and 2008? No age 0s in 2008 b/c no trawling
+
+ggplot(GNTR[which(GNTR$sp %in%"KO"),])+
+  geom_jitter(aes(x=age,y=FL,col=yearF))
+
+ggplot(data=GNTR) +
+  geom_histogram(aes(x=k, fill=fl.cat), colour = "black", binwidth= 0.05)+
+  geom_vline(xintercept = 1, linetype="dashed")+
+  facet_wrap(~lake)+
+  labs(y="Frequency", x="Fulton's k", fill="Category")+
+  theme_bw()
+  
 
 
 
