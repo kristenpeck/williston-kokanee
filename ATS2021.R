@@ -6,11 +6,15 @@
 # Author: Kristen Peck
 # Date: January 2023
 
+options(warn = 1)
+
 library(tidyverse)
 library(lubridate)
 library(readxl)
 library(sf)
 library(mapview)
+
+mapviewOptions(vector.palette = colorRampPalette(c("white", "cornflowerblue", "grey60")))
 
 
 #### Import GN Data ####
@@ -22,9 +26,13 @@ site.GN21 <- read_excel("Williston_Gillnet_Set_data_20211014_revised_KP.xlsx",
                                  "numeric","numeric","date","date","numeric",
                                  "numeric","numeric","text","text","text"))
 fish.GN21 <- read_excel("Williston_Gillnet_Set_data_20211014_revised_KP.xlsx",
-                   sheet="Fish Data") %>% 
+                   sheet="Fish Data",
+                   col_types = c("text","text","text","text","text","numeric",
+                                 "numeric","numeric","numeric","text","text",
+                                 "text","text","text","text","text","text",
+                                 "text","text","numeric","numeric","text","text","text")) %>% 
   select(-c("...22","...23","...24")) %>%
-  mutate(ifelse(`Weight (g)` <=300,NA,`Weight (g)`))#the measurement of fish below 300mm likely off 
+  mutate(`Weight (g)` = ifelse(`Weight (g)` <=300,NA,`Weight (g)`))#the measurement of fish below 300mm likely off 
               
 
 GN2021 <- site.GN21 %>% 
@@ -48,10 +56,10 @@ str(GN2021)
 #   both were either inefficient or partially lost. 
 #   Exclude at least the 25m net for any analysis and view net 1 with caution
 
-exclude <- GN2021$Site %in% "Teare Creek" & GN2021$Net %in% "6"
+#exclude <- GN2021$Site %in% "Teare Creek" & GN2021$Net %in% "6"
 
-GN2021 <- GN2021 %>% 
-  filter(!exclude)
+#GN2021 <- GN2021 %>% 
+#  filter(!exclude)
 
 # At Forebay, Floating RIC nets were mistakenly used and pulled right away. 
 #   Should exclude these nets for any CPUE since they did not sit out 
@@ -87,7 +95,11 @@ xtabs(~sp+Net+Site, data=GN2008, exclude=NULL, na.action=na.pass)
 
 site.GN00 <- read_excel("Rawdata(DS)_KP.xls", sheet="Sample Data_KP") %>% 
   mutate(Net = as.numeric(substr(Net,5,5)))
-fish.GN00 <- read_excel("Rawdata(DS)_KP.xls", sheet="LWdata")
+fish.GN00 <- read_excel("Rawdata(DS)_KP.xls", sheet="LWdata",
+                        col_types = c("text","text","text","numeric",
+                        "text","numeric","numeric","numeric","numeric",
+                        "text","text","numeric","text","text","numeric") )
+str(fish.GN00)
 
 GN2000 <- site.GN00 %>% 
   left_join(fish.GN00, by=c("Site","Net"="Net No.")) %>% 
@@ -119,15 +131,117 @@ GN <- rbind(GN2000,GN2008,GN2021) %>%
                          "?"="UN","U"="UN")) %>% 
   mutate(ageN = as.numeric(recode(age,"1+"="1","2+"="2",
                                   "3+"="3","4+"="4","5+"="5"))) %>% 
-  mutate(yearF = as.factor(year))
+  mutate(yearF = as.factor(year)) %>% 
+  mutate(soak.time = as.numeric(difftime(end.datetime,start.datetime, units="hours"))) %>% 
+  mutate(Reach = recode(Site, "Forebay"="Peace", "Clearwater"="Peace",
+                        "Nabesche"="Peace", "Adams Creek"="Peace",
+                        "Finlay Forks"="Junction", "Teare Creek"="Finlay",
+                        "Factor Ross"="Finlay","Blackwater"="Parsnip",
+                        "Heather Point"="Parsnip"))
+# summary of catch per year per site and depth.
+xtabs(~sp+net.depth+Site+year, data=GN, na.action=na.omit,drop.unused.levels = T)
 
-#remove transient objects
-rm(fish.GN00,fish.GN21,site.GN00,site.GN21, exclude)
+
+#### GN map ####
+
+str(GN)
+
+GN.pts <- st_as_sf(GN, coords = c("Longitude","Latitude"),crs=4326)  #assume WGS84 for all yrs
+
+GN.map <- mapview(list(GN.pts), 
+                  zcol="yearF", 
+                  layer.name = "year")
+
+print(GN.map)
+
+
+#### GN CPUE ####
+
+#the added panel on RIC7 nets should include more fish between 130-160mm:
+#which fish are between 130 and 160 mm FL in RIC6 nets?
+
+(RIC6.fish <- GN %>% 
+  filter(net.type %in% "RIC6") %>% 
+  filter(FL >130 & FL<160) %>% 
+  select(year,Reach,Site,net.depth,net.type,sp,FL))
+RIC6plot <- ggplot(RIC6.fish)+
+  geom_histogram(aes(x=FL, fill=sp),col="black")+
+  facet_wrap(~year,ncol=1)+
+  labs(title="RIC6 catch, FL 130-160mm")
+RIC6plot
+#and which fish are between 130 and 160 mm FL in RIC7 nets?
+(RIC7.fish <- GN %>% 
+  filter(net.type %in% c("RIC7","RIC7-hole","RIC7-inefficient")) %>% 
+  filter(FL >130 & FL<160) %>% 
+  select(year,Reach,Site,net.depth,net.type,sp,FL))
+
+RIC7plot <- ggplot(RIC7.fish)+
+  geom_histogram(aes(x=FL, fill=sp), col="black")+
+  facet_wrap(~year,ncol=1)+
+  labs(title="RIC7 catch in FL 130-160mm")
+RIC7plot
+
+
+
+#in 2008, called station Nabesche but close to Clearwater for our purposes...
+
+GN$Site[which(GN$Site %in% "Nabesche")] <- "Clearwater"
+
+
+# catch by effort with 130-160mm FL removed from ALL nets
+catch.per.effort <- GN %>% 
+  filter(Site != "Adams Creek") %>% 
+  filter(net.type %in% c("RIC6","RIC7")) %>% #exclude inefficient sets of 2021
+  filter(FL < 130 | FL > 160) %>% #exclude FLs between130 and 160mm
+  group_by(year,Reach,Site,net.depth=round(net.depth,0),Net) %>% 
+  summarize(start = first(start.datetime),end = first(end.datetime),
+            KO=sum(sp%in%"KO"),LW=sum(sp%in%"LW")) %>% 
+  mutate(soak.time = as.numeric(difftime(end,start,units="hours"))) %>% 
+  mutate(cpue.KO=KO/soak.time, cpue.LW = LW/soak.time)
+
+CPUEKOplot <- ggplot(catch.per.effort)+
+  geom_col(aes(x=net.depth,y=cpue.KO, fill=as.character(Site)))+
+  coord_flip()+
+  scale_x_reverse()+
+  facet_grid(rows=vars(year),cols=vars(Reach))+
+  labs(x="net depth (m)", fill="")
+CPUEKOplot
+
+CPUELWplot <- ggplot(catch.per.effort)+
+  geom_col(aes(x=net.depth,y=cpue.LW, fill=as.character(Site)))+
+  coord_flip()+
+  scale_x_reverse()+
+  facet_grid(rows=vars(year),cols=vars(Reach))+
+  labs(x="net depth (m)", fill="")
+CPUELWplot
+
+
+#summary of efforts per year
+efforts.per.year <- catch.per.effort %>% 
+  filter(net.depth <= 10) %>% 
+  group_by(Reach,year,Site) %>% 
+  summarize(no.nets=length(unique(Net)), KO=sum(KO),LW=sum(LW),
+            soak.time=sum((soak.time)),KOcpue = round(KO/soak.time,1),
+            LWcpue = round(LW/soak.time,1)) 
+efforts.per.year
+
+
+ggplot(efforts.per.year) +
+  geom_histogram(aes(x=KOcpue, fill=as.character(Site)), binwidth=0.2)+
+  facet_grid(rows=vars(year),cols=vars(Reach))+
+  labs(x="KO CPUE", fill="")
 
 
 
 #which nets had NFC:
 GN[which(is.na(GN$sp)),c("Site","start.datetime","Net","net.depth","FL")]
+
+
+
+
+
+#### Fish comparisons #### *save for GNTR data
+#check KO age scatter by year and sex. NOTE that 2021 is only estimated ages still
 
 #Number of each sp caught by year (note that NA = NFC)
 xtabs(~sp+year, data=GN, exclude=NULL, na.action=na.pass)
@@ -136,8 +250,6 @@ xtabs(~sp+year, data=GN, exclude=NULL, na.action=na.pass)
 xtabs(~sp+year, data=GN[!is.na(GN$FL),], exclude=NULL, na.action=na.pass)
 
 
-
-#check KO age scatter by year and sex. NOTE that 2021 is only estimated ages still
 
 ggplot(GN[which(GN$sp %in% "KO"),])+
   geom_jitter(aes(x=ageN,y=FL, col=as.factor(year)))+
@@ -348,25 +460,6 @@ ggplot(TR[!is.na(TR$FL),])+
 
 
 
-# GN maps #
-
-str(GN)
-
-GN.pts <- st_as_sf(GN, coords = c("Longitude","Latitude"),crs=4326)  #assume WGS84 for all yrs
-
-
-#this is setting the default colours for all mapviews
-mapviewOptions(vector.palette = colorRampPalette(c("white", "cornflowerblue", "grey60")))
-
-
-GN.map <- mapview(list(GN.pts), 
-                  zcol="yearF", 
-                  #col.lines = c("snow", "grey"),
-                  layer.name = "year")
-#legend = list(TRUE, FALSE),
-#lwd=2) 
-print(GN.map)
-
 
 # TR maps #
 #could not F***ing figure pivot_longer in R, so exported, fixed and re-imported
@@ -393,6 +486,7 @@ print(TR.map)
 # fix points for clearwater trawls - off for both 2000 and 2021
 
 
+#combine GN and TR effort into one map
 GNTR.map <- mapview(list(GN.pts,TR.lines), 
                     zcol="yearF", 
                     col.lines = c("snow", "grey"),
@@ -405,12 +499,11 @@ print(GNTR.map)
 
 #### Combine all GN and TR catch ####
 
-names(GNshort)
-
 GNshort <- GN %>% 
   mutate(start.date = as_date(start.datetime), method="GN") %>% 
   select(method,year,site=Site,start.date,net.trawl.number=Net,sp,FL,wt,sex=Sex,
          mat=Maturity,age=ageN)
+
 TRshort <- TR %>% 
   mutate(method="TR") %>% 
   select(method,year,site=Station_ID,start.date,net.trawl.number=Trawl_num,sp,FL,wt,sex,
@@ -419,28 +512,38 @@ TRshort <- TR %>%
 
 GNTR <- rbind(GNshort,TRshort) %>% 
   mutate(yearF = as.factor(year)) %>% 
-  mutate(wt = as.numeric(wt)) %>% 
-  mutate(k = 10000*(wt/FL*3))
+  mutate(k = 100000*(wt/FL^3))
 
-GNTR[which(!is.numeric(GNTR$wt)),]
+
 
 #KO ages from trawl and gillnet combined:
 ggplot(GNTR[which(GNTR$sp %in%"KO"),]) +
   geom_histogram(aes(x=FL, fill=as.factor(age)), binwidth=5,position = "stack")+
   facet_wrap(~year, nrow=3)
-#some very old kokanee in 2000 and 2008? No age 0s in 2008 b/c no trawling
+#some very old kokanee in 2000? No age 0s in 2008 b/c no trawling
 
+#length at age, all together
 ggplot(GNTR[which(GNTR$sp %in%"KO"),])+
   geom_jitter(aes(x=age,y=FL,col=yearF))
 
-ggplot(data=GNTR) +
-  geom_histogram(aes(x=k, fill=fl.cat), colour = "black", binwidth= 0.05)+
+
+#condition for kokanee and lake whitefish by year
+ggplot(data=GNTR[which(GNTR$sp %in% c("KO","LW")),]) +
+  geom_histogram(aes(x=k, fill=sp), colour = "black")+
   geom_vline(xintercept = 1, linetype="dashed")+
-  facet_wrap(~lake)+
-  labs(y="Frequency", x="Fulton's k", fill="Category")+
-  theme_bw()
+  facet_wrap(~year, nrow=3)+
+  labs(y="Frequency", x="Fulton's k", fill="sp")
   
+#condition by age for kokanee by year
+ggplot(data=GNTR[which(GNTR$sp %in% c("KO")),]) +
+  geom_histogram(aes(x=k, fill=as.factor(age)), colour = "black")+
+  geom_vline(xintercept = 1, linetype="dashed")+
+  facet_wrap(~year, nrow=3)+
+  labs(y="Frequency", x="Fulton's k", fill="age")
 
-
+#remove transient objects
+rm(fish.GN00,fish.GN21,site.GN00,site.GN21, exclude, GN2000,GN2008,GN2021,
+   GNshort,latitudes,latitudes21,longitudes,longitudes21,log.TR00,TR2000,
+   TR2021,TR2000short,TRshort,fish.TR00,fish.TR21, locations,locations21)
 
 
