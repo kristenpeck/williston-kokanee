@@ -1,5 +1,5 @@
 ---
-title: "ATS-GNreport"
+title: "Change in Fish Composition - Williston ATS GN surveys"
 author: "Kristen Peck"
 date: "`r format(Sys.time(), '%Y-%m-%d')`"
 output: 
@@ -15,6 +15,7 @@ library(lubridate)
 library(readxl)
 library(sf)
 library(mapview)
+
 
 source("ATS2021.R")
 
@@ -62,7 +63,8 @@ print.data.frame(efforts.per.year)
 GN.map
 ```
 
-## GN CPUE
+## GN CPUE - Making the Data Comparable
+
 First need to make sites and net catch comparable by making site names equivalent (i.e. Nabesche [2008] is close enough to Clearwater [2000&2021]; Adams Creek is a site not used outside of 2008), examine and remove the extra panel from the RIC7 nets used in 2021.
 
 Examine whether RIC6 nets caught fish in 130:160mm FL range:
@@ -87,22 +89,54 @@ RIC7plot
 Given the greater catch of this size range in the RIC7s (as expected) we will remove this size range from both RIC6 and RIC7 for CPUE comparisons.
 
 ### Kokanee and Lake Whitefish CPUE
-After the extra panel target size is removed and the sites are more or less made equivalent, we still have the problem that different depths were set each year - surface sets only for 2000 and 2008 and 5 - 20 m depth for 2021. What this looks like when looking at CPUE by depth for Kokanee and Lake Whitefish:
+Kokanee and Lake Whitefish are likely the only two species that should be compared for CPUE (and note-only WITHIN species) since the rest are either two low density (the predators) or they seem to swim in schools (Peamouth).
+
+After the extra panel target size is removed and the sites are more or less made equivalent, we still have the problem that different depths were set each year - surface sets only for 2000 and 2008 and mostly 5 - 20 m depth for 2021. What this looks like when looking at CPUE by depth for Kokanee and Lake Whitefish:
 
 ```{r CPUE by depth KO and LW ,echo=F, warning=F, message=F}
 CPUEKOplot
 CPUELWplot
 ```
 
-We see that there are not many cases of equivalency between years, where the same depths and sites were sampled. If you assume 0-10 m depths (above the thermocline in every year) are comparable...
+We see that there are not many cases of equivalency between years, where the same depths and sites were sampled. We can perhaps assume the 0-10 m net depths (above the thermocline in every year) are comparable, in which case the average CPUE for Kokanee and Lake Whitefish are:
 
 ```{r CPUE above 10 m,echo=F, warning=F, message=F}
 
+knitr::kable(table.cpue.stats, digits=2)
 
-print.data.frame(efforts.per.year)
 ```
 
+If we pick only the sites with more than one year of netting data (Clearwater, Forebay, Finlay Forks, and Heather Point) and compare the CPUE of the two species :
+```{r CPUE select sites,echo=F, warning=F, message=F}
+plot.mn.cpue
+```
 
+## GN CPUE - Kokanee and Lake Whitefish over time
+
+We can check if there has been an overall trend in CPUE over the years sampled for Kokanee: 
+
+```{r LM KO,echo=F, warning=F, message=F}
+summary(lm(data=compare.sites.raw,formula= KO~year))
+```
+
+And for Lake Whitefish:
+```{r LM LW,echo=F, warning=F, message=F}
+summary(lm(data=compare.sites.raw,formula= LW~year))
+```
+
+But as you can see from the plot above there are different patterns for each site, so the linear model should use an interaction between site and year for Kokanee (note that they are all comparing to the Clearwater site):
+```{r LM KO by site,echo=F, warning=F, message=F}
+summary(lm(data=compare.sites.raw,formula= KO~year*Site))
+```
+
+And for Lake Whitefish:
+```{r LM LW by site,echo=F, warning=F, message=F}
+summary(lm(data=compare.sites.raw,formula= LW~year*Site))
+```
+
+Neither test is particularly conclusive - there may have been an overall increase in Kokanee CPUE from 2000 to 2021, and an overall decrease in Lake Whitefish CPUE over the same time, but each site is a little different. That should be expected in a reservoir this size. However, we had to remove a lot of the data (a range of FL, many of the sites including all of the Finlay Reach sites, half of the depths in 2021) to get to this point of comparability so a) we should really think about using these results as a generalization for the whole reservoir and b) given the small sample sizes here there may actually be a huge change in composition over time that is just hinted at in these results. 
+
+I will give the length at age more of a look once the age data are settled, and the trawl catch change in condition over time (GN data in 2021 is pretty much tossable for fish condition). If they all point in the same direction, that may indicate a change in fish composition over time.
 
 
 
