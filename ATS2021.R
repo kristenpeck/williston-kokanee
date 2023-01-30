@@ -6,7 +6,6 @@
 # Author: Kristen Peck
 # Date: January 2023
 
-options(warn = 1)
 
 library(tidyverse)
 library(lubridate)
@@ -14,6 +13,7 @@ library(readxl)
 library(sf)
 library(mapview)
 
+options(warn = 1)
 mapviewOptions(vector.palette = colorRampPalette(c("white", "cornflowerblue", "grey60")))
 
 
@@ -165,7 +165,7 @@ print(GN.map)
   filter(FL >130 & FL<160) %>% 
   select(year,Reach,Site,net.depth,net.type,sp,FL))
 RIC6plot <- ggplot(RIC6.fish)+
-  geom_histogram(aes(x=FL, fill=sp),col="black")+
+  geom_histogram(aes(x=FL, fill=sp),col="black", binwidth=1)+
   facet_wrap(~year,ncol=1)+
   labs(title="RIC6 catch, FL 130-160mm")
 RIC6plot
@@ -176,7 +176,7 @@ RIC6plot
   select(year,Reach,Site,net.depth,net.type,sp,FL))
 
 RIC7plot <- ggplot(RIC7.fish)+
-  geom_histogram(aes(x=FL, fill=sp), col="black")+
+  geom_histogram(aes(x=FL, fill=sp), col="black",binwidth=1)+
   facet_wrap(~year,ncol=1)+
   labs(title="RIC7 catch in FL 130-160mm")
 RIC7plot
@@ -191,7 +191,7 @@ GN$Site[which(GN$Site %in% "Nabesche")] <- "Clearwater"
 # catch by effort with 130-160mm FL removed from ALL nets
 catch.per.effort <- GN %>% 
   filter(Site != "Adams Creek") %>% 
-  filter(net.type %in% c("RIC6","RIC7")) %>% #exclude inefficient sets of 2021
+  filter(net.type %in% c("RIC6","RIC7","RIC7-hole")) %>% #exclude inefficient sets of 2021
   filter(FL < 130 | FL > 160) %>% #exclude FLs between130 and 160mm
   group_by(year,Reach,Site,net.depth=round(net.depth,0),Net) %>% 
   summarize(start = first(start.datetime),end = first(end.datetime),
@@ -199,8 +199,11 @@ catch.per.effort <- GN %>%
   mutate(soak.time = as.numeric(difftime(end,start,units="hours"))) %>% 
   mutate(cpue.KO=KO/soak.time, cpue.LW = LW/soak.time)
 
+
+
+
 CPUEKOplot <- ggplot(catch.per.effort)+
-  geom_col(aes(x=net.depth,y=cpue.KO, fill=as.character(Site)))+
+  geom_col(aes(x=net.depth,y=cpue.KO, fill=as.character(Site)),col="black")+
   coord_flip()+
   scale_x_reverse()+
   facet_grid(rows=vars(year),cols=vars(Reach))+
@@ -208,28 +211,102 @@ CPUEKOplot <- ggplot(catch.per.effort)+
 CPUEKOplot
 
 CPUELWplot <- ggplot(catch.per.effort)+
-  geom_col(aes(x=net.depth,y=cpue.LW, fill=as.character(Site)))+
+  geom_col(aes(x=net.depth,y=cpue.LW, fill=as.character(Site)), col="black")+
   coord_flip()+
   scale_x_reverse()+
   facet_grid(rows=vars(year),cols=vars(Reach))+
   labs(x="net depth (m)", fill="")
 CPUELWplot
 
-
 #summary of efforts per year
 efforts.per.year <- catch.per.effort %>% 
-  filter(net.depth <= 10) %>% 
-  group_by(Reach,year,Site) %>% 
+  group_by(Site,Reach,year) %>% 
   summarize(no.nets=length(unique(Net)), KO=sum(KO),LW=sum(LW),
             soak.time=sum((soak.time)),KOcpue = round(KO/soak.time,1),
             LWcpue = round(LW/soak.time,1)) 
 efforts.per.year
 
+#summary of efforts per year from 0-10m depth
+efforts.per.year.under10 <- catch.per.effort %>% 
+  filter(net.depth <= 10) %>% 
+  group_by(Site,Reach,year) %>% 
+  summarize(no.nets=length(unique(Net)), KO=sum(KO),LW=sum(LW),
+            soak.time=sum((soak.time)),KOcpue = round(KO/soak.time,1),
+            LWcpue = round(LW/soak.time,1)) 
+efforts.per.year.under10
 
-ggplot(efforts.per.year) +
+
+ggplot(efforts.per.year.under10) +
   geom_histogram(aes(x=KOcpue, fill=as.character(Site)), binwidth=0.2)+
   facet_grid(rows=vars(year),cols=vars(Reach))+
   labs(x="KO CPUE", fill="")
+
+ggplot(efforts.per.year.under10) +
+  geom_histogram(aes(x=LWcpue, fill=as.character(Site)), binwidth=0.2)+
+  facet_grid(rows=vars(year),cols=vars(Reach))+
+  labs(x="LW CPUE", fill="")
+
+
+cpue.stats <- catch.per.effort %>% 
+  filter(net.depth <= 10) %>% 
+  group_by(Site, Reach, year) %>% 
+  summarize(nets= length(unique(Net)),mn.KO = mean(KO),sd.KO = sd(KO), 
+            mn.LW = mean(LW), sd.LW = sd(LW),
+            mn.soak.time=mean(soak.time),se.KO = sd(KO)/sqrt(length(Net)),
+            se.LW = sd(LW)/sqrt(length(Net))) %>% 
+  mutate(mn.cpue.KO = mn.KO/mn.soak.time, mn.cpue.LW = mn.LW/mn.soak.time,
+         sd.cpue.KO = sd.KO/mn.soak.time, sd.cpue.LW = sd.LW/mn.soak.time,
+         se.cpue.KO = se.KO/mn.soak.time, se.cpue.LW = se.LW/mn.soak.time,
+         CI.cpue.KO = se.cpue.KO*1.96, CI.cpue.LW = se.cpue.LW*1.96)
+cpue.stats
+str(cpue.stats)
+
+table.cpue.stats <- cpue.stats %>% 
+  select(Reach, Site, Year=year, Nets=nets, `Mean Soak Time (hrs)`=mn.soak.time,
+         `Mean CPUE KO`=mn.cpue.KO, `StDev CPUE KO`=sd.cpue.KO,
+         `Mean CPUE LW`=mn.cpue.LW,`StDev CPUE LW`=sd.cpue.LW)
+
+#pick only sites with multipleyears of data
+compare.sites.raw <- catch.per.effort %>% 
+  filter(net.depth <= 10) %>% 
+  filter(Site %in% c("Clearwater","Finlay Forks","Forebay","Heather Point"))
+
+compare.sites <- cpue.stats %>% 
+  filter(Site %in% c("Clearwater","Finlay Forks","Forebay","Heather Point"))
+
+
+plot.mn.cpue <- ggplot(compare.sites)+
+  geom_point(aes(x=year,y=mn.cpue.KO), col="grey25") +
+  geom_errorbar(aes(x=year,
+                    ymin=mn.cpue.KO-CI.cpue.KO,ymax=mn.cpue.KO+CI.cpue.KO), 
+                width=0.4)+
+  geom_point(aes(x=year,y=mn.cpue.LW), col="blue") +
+  geom_errorbar(aes(x=year,
+                    ymin=mn.cpue.LW-CI.cpue.LW,ymax=mn.cpue.LW+CI.cpue.LW), 
+                width=0.4, col="blue")+
+  geom_smooth(aes(x=year,y=mn.cpue.KO),method = "lm", se=F, col="grey25")+
+  geom_smooth(aes(x=year,y=mn.cpue.LW),method = "lm",se = F, col="blue")+
+  facet_wrap(~Site)+
+  labs(y="Mean CPUE (KO in black, LW in blue)")
+plot.mn.cpue
+
+ggplot(cpue.stats)+
+  geom_point(aes(x=year,y=mn.cpue.LW)) +
+  geom_errorbar(aes(x=year,
+                    ymin=mn.cpue.LW-sd.cpue.LW,ymax=mn.cpue.LW+sd.cpue.LW), 
+                width=0.4)+
+  geom_smooth(aes(x=year,y=mn.cpue.LW),method = "lm",se = F)+
+  facet_wrap(~Site)
+
+summary(lm(data=compare.sites.raw,formula= KO~year))
+
+summary(lm(data=compare.sites.raw,formula= LW~year))
+
+
+
+
+
+
 
 
 
