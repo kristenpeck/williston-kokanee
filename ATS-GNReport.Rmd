@@ -1,11 +1,12 @@
 ---
-title: "Change in Fish Composition - Williston ATS GN surveys"
+title: "Change in Fish Composition: Williston ATS GN surveys"
 author: "Kristen Peck"
 date: "`r format(Sys.time(), '%Y-%m-%d')`"
+always_allow_html: true
 output: 
-  html_document:
-    number_sections: yes
-    toc: yes
+  pdf_document:
+    toc: true
+    number_sections: true
     toc_depth: 2
 ---
 
@@ -106,7 +107,8 @@ knitr::kable(table.cpue.stats, digits=2)
 
 ```
 
-If we pick only the sites with more than one year of netting data (Clearwater, Forebay, Finlay Forks, and Heather Point) and compare the CPUE of the two species :
+If we pick only the sites with more than one year of netting data (Clearwater, Forebay, Finlay Forks, and Heather Point) and compare the CPUE of the two species:
+
 ```{r CPUE select sites,echo=F, warning=F, message=F}
 plot.mn.cpue
 ```
@@ -120,16 +122,19 @@ summary(lm(data=compare.sites.raw,formula= KO~year))
 ```
 
 And for Lake Whitefish:
+
 ```{r LM LW,echo=F, warning=F, message=F}
 summary(lm(data=compare.sites.raw,formula= LW~year))
 ```
 
 But as you can see from the plot above there are different patterns for each site, so the linear model should use an interaction between site and year for Kokanee (note that they are all comparing to the Clearwater site):
+
 ```{r LM KO by site,echo=F, warning=F, message=F}
 summary(lm(data=compare.sites.raw,formula= KO~year*Site))
 ```
 
 And for Lake Whitefish:
+
 ```{r LM LW by site,echo=F, warning=F, message=F}
 summary(lm(data=compare.sites.raw,formula= LW~year*Site))
 ```
