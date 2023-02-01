@@ -4,7 +4,7 @@ author: "Kristen Peck"
 date: "`r format(Sys.time(), '%Y-%m-%d')`"
 always_allow_html: true
 output: 
-  pdf_document:
+  html_document:
     toc: true
     number_sections: true
     toc_depth: 2
@@ -142,6 +142,30 @@ summary(lm(data=compare.sites.raw,formula= LW~year*Site))
 Neither test is particularly conclusive - there may have been an overall increase in Kokanee CPUE from 2000 to 2021, and an overall decrease in Lake Whitefish CPUE over the same time, but each site is a little different. That should be expected in a reservoir this size. However, we had to remove a lot of the data (a range of FL, many of the sites including all of the Finlay Reach sites, half of the depths in 2021) to get to this point of comparability so a) we should really think about using these results as a generalization for the whole reservoir and b) given the small sample sizes here there may actually be a huge change in composition over time that is just hinted at in these results. 
 
 I will give the length at age more of a look once the age data are settled, and the trawl catch change in condition over time (GN data in 2021 is pretty much tossable for fish condition). If they all point in the same direction, that may indicate a change in fish composition over time.
+
+## Changes in fish condition
+
+Another way to investigate changes in fish composition is to look at changes in fish condition. The assumptions behind this comparison are that the methods used among years are comparable - i.e. that measurements were taking without error in each year and a sufficient sample was measured to cover the range of captured fish. This assumption, we know, was violated in the gill netting data in 2021 since the tools used to obtain weights were too coarse. We can explore if any other data seems hinky before trying to compare:
+
+```{r length-weight KO by year, echo=F}
+plotlength.weight.rawKO
+
+```
+
+We can see in the above plot (which is zoomed in to the GN size of catch) that there is a much wider spread of weights in the 2021 GN measurements and they are all slightly above previous years of catch, as well as some outliers. This may be demonstrating a real change in the fish conditions, except that if we compare to the trawl data from the same survey:
+
+```{r length-weight KO by method, echo=F}
+plotlength.weightKO.2021
+```
+
+So unfortunately the weights from the gill netting should be discarded entirely, since they are both inaccurate and imprecise. However, there is a large overlap in fork length sizes from the trawl catches of Kokanee, so the weights and individual weight error intervals can be predicted from the fork lengths following Ogle (2016):
+
+```{r predicted weights, echo=F}
+plotpred.weightKO.2021
+```
+
+This can only be done for Kokanee since no other species was caught in great enough numbers in the trawl.
+
 
 
 
