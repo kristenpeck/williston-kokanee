@@ -12,6 +12,7 @@ library(lubridate)
 library(readxl)
 library(sf)
 library(mapview)
+library(FSA)
 
 options(warn = 1)
 mapviewOptions(vector.palette = colorRampPalette(c("white", "cornflowerblue", "grey60")))
@@ -31,8 +32,8 @@ fish.GN21 <- read_excel("Williston_Gillnet_Set_data_20211014_revised_KP.xlsx",
                                  "numeric","numeric","numeric","text","text",
                                  "text","text","text","text","text","text",
                                  "text","text","numeric","numeric","text","text","text")) %>% 
-  select(-c("...22","...23","...24")) %>%
-  mutate(`Weight (g)` = ifelse(`Weight (g)` <=300,NA,`Weight (g)`))#the measurement of fish below 300mm likely off 
+  select(-c("...22","...23","...24")) #%>%
+ # mutate(`Weight (g)` = ifelse(`Weight (g)` <=300,NA,`Weight (g)`))#the measurement of fish below 300mm likely off 
               
 
 GN2021 <- site.GN21 %>% 
@@ -140,6 +141,14 @@ GN <- rbind(GN2000,GN2008,GN2021) %>%
                         "Heather Point"="Parsnip"))
 # summary of catch per year per site and depth.
 xtabs(~sp+net.depth+Site+year, data=GN, na.action=na.omit,drop.unused.levels = T)
+#which nets had NFC:
+GN[which(is.na(GN$sp)),c("Site","start.datetime","Net","net.depth","FL")]
+#Number of each sp caught by year (note that NA = NFC)
+xtabs(~sp+year, data=GN, exclude=NULL, na.action=na.pass)
+#number of each sp measured for FL
+xtabs(~sp+year, data=GN[!is.na(GN$FL),], exclude=NULL, na.action=na.pass)
+#number of each sp measured for wt
+xtabs(~sp+year, data=GN[!is.na(GN$wt),], exclude=NULL, na.action=na.pass)
 
 
 #### GN map ####
@@ -306,54 +315,6 @@ summary(lm(data=compare.sites.raw,formula= LW~year))
 
 
 
-
-
-
-
-#which nets had NFC:
-GN[which(is.na(GN$sp)),c("Site","start.datetime","Net","net.depth","FL")]
-
-
-
-
-
-#### Fish comparisons #### *save for GNTR data
-#check KO age scatter by year and sex. NOTE that 2021 is only estimated ages still
-
-#Number of each sp caught by year (note that NA = NFC)
-xtabs(~sp+year, data=GN, exclude=NULL, na.action=na.pass)
-
-#number of each sp measured for FL
-xtabs(~sp+year, data=GN[!is.na(GN$FL),], exclude=NULL, na.action=na.pass)
-
-
-
-ggplot(GN[which(GN$sp %in% "KO"),])+
-  geom_jitter(aes(x=ageN,y=FL, col=as.factor(year)))+
-  facet_wrap(~Sex)+
-  labs(col="year", title="KO")
-
-#check KO age scatter by year and Maturity. NOTE that 2021 is only estimated ages still
-
-ggplot(GN[which(GN$sp %in% "KO"),])+
-  geom_jitter(aes(x=ageN,y=FL, col=as.factor(year)))+
-  facet_wrap(~Maturity) 
-# Likely some mis-IDs of maturity in here. All "M" should likely be "MT"
-
-
-#plot FL and Age by species
-ggplot(GN[!is.na(GN$FL),])+
-  geom_jitter(aes(x=ageN,y=FL, col=sp))+
-  facet_wrap(~year, nrow=3)
-#note that only estimated KO ages avail for 2021
-
-
-
-
-
-
-
-
 #### Import Trawl Data ####
 
 # TR 2021
@@ -494,48 +455,6 @@ TR <- rbind(TR2000short,TR2021) %>%
   mutate(Maturity=recode(Maturity,"Immature"="IM")) %>% 
   mutate(yearF = as.factor(year))
 
-unique(TR$age)
-
-str(TR)
-
-
-#which trawls had NFC:
-TR[which(is.na(TR$sp)),c("Station_ID","start.date","Trawl_num",
-                         "sp")]
-
-#Number of each sp caught by year (note that NA = NFC)
-xtabs(~sp+year, data=TR, exclude=NULL, na.action=na.pass)
-
-#number of each sp measured for FL
-xtabs(~sp+year, data=TR[!is.na(TR$FL),], exclude=NULL, na.action=na.pass)
-
-
-
-#check KO age scatter by year and sex. NOTE that 2021 is only estimated ages still
-
-ggplot(TR[which(TR$sp %in% "KO"),])+
-  geom_jitter(aes(x=age,y=FL, col=yearF))+
-  facet_wrap(~sex)+
-  labs(col="year", title="KO")
-
-#check KO age scatter by year and Maturity. NOTE that 2021 is only estimated ages still
-
-ggplot(TR[which(TR$sp %in% "KO"),])+
-  geom_jitter(aes(x=age,y=FL, col=yearF))+
-  facet_wrap(~Maturity)+
-  labs(col="year", title="KO") 
-# All "M" should likely be "MT" at the time these surveys took place?
-
-
-#plot FL and Age by species
-ggplot(TR[!is.na(TR$FL),])+
-  geom_jitter(aes(x=age,y=FL, col=sp))+
-  facet_wrap(~year, nrow=3)
-#note that only estimated KO ages avail for 2021
-
-
-
-
 
 
 # TR maps #
@@ -547,7 +466,7 @@ str(TRmapping)
 
 
 TR.pts <- st_as_sf(TRmapping, coords = c("Longitude","Latitude"),
-                         crs=4326)  #assume WGS84 for all yrs
+                   crs=4326)  #assume WGS84 for all yrs
 TR.lines<- TR.pts %>%
   group_by(yearF, Station_ID, Trawl_num) %>%
   dplyr::summarize() %>%
@@ -563,7 +482,7 @@ print(TR.map)
 # fix points for clearwater trawls - off for both 2000 and 2021
 
 
-#combine GN and TR effort into one map
+#### GNTR map ####
 GNTR.map <- mapview(list(GN.pts,TR.lines), 
                     zcol="yearF", 
                     col.lines = c("snow", "grey"),
@@ -571,6 +490,76 @@ GNTR.map <- mapview(list(GN.pts,TR.lines),
                     legend = list(T, F),
                     lwd=2) 
 print(GNTR.map)
+
+
+
+
+#### QAQC Trawl ####
+
+#which trawls had NFC:
+TR[which(is.na(TR$sp)),c("Station_ID","start.date","Trawl_num",
+                         "sp")]
+#Number of each sp caught by year (note that NA = NFC)
+xtabs(~sp+year, data=TR, exclude=NULL, na.action=na.pass)
+
+#number of each sp measured for FL
+xtabs(~sp+year, data=TR[!is.na(TR$FL),], exclude=NULL, na.action=na.pass)
+
+#number of each sp measured for wt
+xtabs(~sp+year, data=TR[!is.na(TR$wt),], exclude=NULL, na.action=na.pass)
+
+
+#check KO scatter by year and sex. 
+# appears that sex may have been assigned strangely in 2021- small fish only females
+# will assume all small fish (e.g.<200mm) too hard to distinguish sex -> IM
+ggplot(TR[which(TR$sp %in% "KO"),])+
+  geom_jitter(aes(x=log10(FL),y=log10(wt), col=yearF))+
+  facet_wrap(~sex)+
+  labs(col="year", title="KO")
+
+#check LW scatter by year and sex
+ggplot(TR[which(TR$sp %in% "LW"),])+
+  geom_jitter(aes(x=log10(FL),y=log10(wt), col=yearF))+
+  facet_wrap(~sex)+
+  labs(col="year", title="LW")
+
+#check KO age scatter by year and Maturity. NOTE that 2021 is only estimated ages still
+
+ggplot(TR[which(TR$sp %in% "KO"),])+
+  geom_jitter(aes(x=age,y=FL, col=yearF))+
+  facet_wrap(~Maturity)+
+  labs(col="year", title="KO") 
+# All "M" should likely be "MT" at the time these surveys took place?
+
+#check LW age scatter by year and Maturity. NOTE that 2021 is only estimated ages still
+
+ggplot(TR[which(TR$sp %in% "LW"),])+
+  geom_jitter(aes(x=age,y=FL, col=yearF))+
+  facet_wrap(~Maturity)+
+  labs(col="year", title="LW") 
+
+
+
+
+
+
+
+#plot FL and Age by species
+ggplot(TR[!is.na(TR$FL),])+
+  geom_jitter(aes(x=age,y=FL, col=sp))+
+  facet_wrap(~year, nrow=3)
+#note that only estimated KO ages avail for 2021
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -589,8 +578,120 @@ TRshort <- TR %>%
 
 GNTR <- rbind(GNshort,TRshort) %>% 
   mutate(yearF = as.factor(year)) %>% 
-  mutate(k = 100000*(wt/FL^3))
+  mutate(k = 100000*(wt/FL^3)) %>% 
+  mutate(logFL = log10(FL), logwt = log10(wt))
 
+
+#### Fish comparisons #### 
+#check for changes in fish condition among years and changes in length at age
+
+(plotlength.weight.rawKO <- ggplot(GNTR[which(GNTR$sp %in% "KO"),])+
+  geom_point(aes(x=logFL, y=logwt, col=yearF))+
+  #scale_x_continuous(limits = c(2,2.5), breaks = seq(2,2.5,.1))+
+  #scale_y_continuous(limits = c(1,2.5), breaks = seq(1,2.5,0.1))+
+  facet_wrap(~method))+
+  labs(title="KO all length-weights by year")
+
+#find outliers:
+GNTR %>% #first fish measured nthe Forebay in bad net sets
+  filter(method %in% "GN", logFL >2.25 & logwt <1.5)
+GNTR %>% #KO caught at Finlay Forks FL 250, wt 110
+  filter(method %in% "GN", year %in% 2021, logFL >=2.36 & logwt <2.06)
+GNTR %>% #KO caught at Finlay Forks FL 141, wt 70
+  filter(method %in% "GN", logFL <2.17 & logwt >1.8)
+
+(plotlength.weightKO.2021 <- ggplot(GNTR[which(GNTR$sp %in% "KO"&GNTR$year %in% 2021),])+
+    geom_point(aes(x=logFL, y=logwt, col=method))+
+  labs(title="KO all length-weights in 2021 by collection method"))
+
+
+
+#GNTR[which(GNTR$sp %in% "KO"),]
+
+GNTR.measuredwts <- GNTR %>% 
+  filter(year %in% 2021, method %in% "TR", sp %in% "KO") %>% 
+  filter(!is.na(FL), !is.na(wt)) %>% 
+  mutate(wt.pred = as.character("measured"))
+nrow(GNTR.measuredwts) #85 KO were measured for weight in the trawl
+
+GNTR.predwts <- GNTR %>% 
+  filter(year %in% 2021, method %in% "GN", sp %in% "KO") %>% 
+  filter(!is.na(FL)) %>% 
+  mutate(wt = NA, logwt = NA, wt.pred = as.character("predicted"))
+nrow(GNTR.predwts) #138 KO weights need to be predicted
+
+
+fitflwt.ko21 <- lm(logwt~logFL, data=GNTR.measuredwts) #this is the fit of the 2021 length-weight from trawl
+summary(fitflwt.ko21)
+par(mfrow = c(2, 2))
+plot(fitflwt.ko21) #check for length-wt outliers in residual plot
+
+pred.logwt <- predict(fitflwt.ko21, GNTR.predwts, interval ="prediction") #this is predicting individual fish weights, not average
+cf <- logbtcf(fitflwt.ko21, 10)
+back.trans <- cf*10^pred.logwt
+
+GNTR.predwts$wt <- as.numeric(back.trans[,1])
+GNTR.predwts$pred.wt.lwr <- back.trans[,2]
+GNTR.predwts$pred.wt.upr <- back.trans[,3]
+
+GNTRwts <- GNTR.measuredwts %>% 
+    full_join(GNTR.predwts) %>% 
+  mutate(logwt = log10(wt))
+
+(plotpred.weightKO.2021 <- ggplot(GNTRwts)+
+    geom_errorbar(aes(x=logFL, ymin=log10(pred.wt.lwr), 
+                      ymax=log10(pred.wt.upr)), col="light blue")+
+    geom_point(aes(x=logFL, y=logwt, col=wt.pred))+
+    labs(title="KO measured and predicted weights in 2021"))
+
+#viewed together with other years of data:
+
+GNTRwts.allyrs <- GNTR %>% 
+  filter(year != 2021, sp %in% "KO") %>% 
+  mutate(wt.pred = as.character("measured")) %>% 
+  full_join(GNTRwts)
+
+GNTRwts.allyrs[which(GNTRwts.allyrs$wt.pred %in% "measured"),]
+
+ggplot(GNTRwts.allyrs[which(GNTRwts.allyrs$wt.pred %in% "measured"),])+
+  geom_errorbar(aes(x=logFL, ymin=log10(pred.wt.lwr), 
+                    ymax=log10(pred.wt.upr)), col="light blue")+
+  geom_point(aes(x=logFL, y=logwt, col=yearF))+
+  geom_smooth(aes(x=logFL, y=logwt, col=yearF), method="lm")
+
+
+#compare slopes between years (fit1 does not use predicted weights)
+library(car)
+
+fit1.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrs[which(GNTRwts.allyrs$wt.pred %in% "measured"),])
+fit2.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrs)
+car::Anova(fit1.ko)
+car::Anova(fit2.ko)
+
+
+
+
+
+# length at age 
+
+ggplot(GN[which(GN$sp %in% "KO"),])+
+  geom_jitter(aes(x=ageN,y=FL, col=as.factor(year)))+
+  facet_wrap(~Sex)+
+  labs(col="year", title="KO")
+
+#check KO age scatter by year and Maturity. NOTE that 2021 is only estimated ages still
+
+ggplot(GN[which(GN$sp %in% "KO"),])+
+  geom_jitter(aes(x=ageN,y=FL, col=as.factor(year)))+
+  facet_wrap(~Maturity) 
+# Likely some mis-IDs of maturity in here. All "M" should likely be "MT"
+
+
+#plot FL and Age by species
+ggplot(GN[!is.na(GN$FL),])+
+  geom_jitter(aes(x=ageN,y=FL, col=sp))+
+  facet_wrap(~year, nrow=3)
+#note that only estimated KO ages avail for 2021
 
 
 #KO ages from trawl and gillnet combined:
