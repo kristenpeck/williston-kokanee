@@ -13,6 +13,8 @@ library(readxl)
 library(sf)
 library(mapview)
 library(FSA)
+library(nnet)
+library(car)
 
 options(warn = 1)
 mapviewOptions(vector.palette = colorRampPalette(c("white", "cornflowerblue", "grey60")))
@@ -126,15 +128,15 @@ xtabs(~sp+Net+Site, data=GN2000, exclude=NULL, na.action=na.pass)
 
 GN <- rbind(GN2000,GN2008,GN2021) %>% 
   mutate(method="GN") %>% 
-  mutate(sp=recode(sp,"PC" = "PCC")) %>% 
-  mutate(Sex=recode(Sex, "f"="F","m"="M","IM"="UN","?"="UN")) %>% 
-  mutate(Maturity=recode(Maturity, "imm"="IM","IMM"="IM","MTC"="MT",
+  mutate(sp=dplyr::recode(sp,"PC" = "PCC")) %>% 
+  mutate(Sex=dplyr::recode(Sex, "f"="F","m"="M","IM"="UN","?"="UN")) %>% 
+  mutate(Maturity=dplyr::recode(Maturity, "imm"="IM","IMM"="IM","MTC"="MT",
                          "?"="UN","U"="UN")) %>% 
-  mutate(ageN = as.numeric(recode(age,"1+"="1","2+"="2",
+  mutate(ageN = as.numeric(dplyr::recode(age,"1+"="1","2+"="2",
                                   "3+"="3","4+"="4","5+"="5"))) %>% 
   mutate(yearF = as.factor(year)) %>% 
   mutate(soak.time = as.numeric(difftime(end.datetime,start.datetime, units="hours"))) %>% 
-  mutate(Reach = recode(Site, "Forebay"="Peace", "Clearwater"="Peace",
+  mutate(Reach = dplyr::recode(Site, "Forebay"="Peace", "Clearwater"="Peace",
                         "Nabesche"="Peace", "Adams Creek"="Peace",
                         "Finlay Forks"="Junction", "Teare Creek"="Finlay",
                         "Factor Ross"="Finlay","Blackwater"="Parsnip",
@@ -161,7 +163,7 @@ GN.map <- mapview(list(GN.pts),
                   zcol="yearF", 
                   layer.name = "year")
 
-print(GN.map)
+#print(GN.map)
 
 
 #### GN CPUE ####
@@ -285,18 +287,18 @@ compare.sites <- cpue.stats %>%
 
 
 plot.mn.cpue <- ggplot(compare.sites)+
-  geom_point(aes(x=year,y=mn.cpue.KO), col="grey25") +
+  geom_point(aes(x=year,y=mn.cpue.KO), col="purple", size=4,alpha=0.5) +
   geom_errorbar(aes(x=year,
                     ymin=mn.cpue.KO-CI.cpue.KO,ymax=mn.cpue.KO+CI.cpue.KO), 
-                width=0.4)+
-  geom_point(aes(x=year,y=mn.cpue.LW), col="blue") +
+                width=0.4, linewidth=1,alpha=0.5, col="purple")+
+  geom_point(aes(x=year,y=mn.cpue.LW), col="blue", size=4,alpha=0.5) +
   geom_errorbar(aes(x=year,
                     ymin=mn.cpue.LW-CI.cpue.LW,ymax=mn.cpue.LW+CI.cpue.LW), 
-                width=0.4, col="blue")+
-  geom_smooth(aes(x=year,y=mn.cpue.KO),method = "lm", se=F, col="grey25")+
-  geom_smooth(aes(x=year,y=mn.cpue.LW),method = "lm",se = F, col="blue")+
+                width=0.4, linewidth=1, alpha=0.5, col="blue")+
+  geom_smooth(aes(x=year,y=mn.cpue.KO),method = "lm", se=F, alpha=0.25,col="purple")+
+  geom_smooth(aes(x=year,y=mn.cpue.LW),method = "lm", se=F, col="blue",alpha=0.25)+
   facet_wrap(~Site)+
-  labs(y="Mean CPUE (KO in black, LW in blue)")
+  labs(y="Mean CPUE (KO in purple, LW in blue)")
 plot.mn.cpue
 
 ggplot(cpue.stats)+
@@ -450,9 +452,9 @@ TR2000short <- TR2000 %>%
             "total.mins","comments", "boat.speed_ms"))
 
 TR <- rbind(TR2000short,TR2021) %>% 
-  mutate(sp=recode(sp,"Kokanee"="KO","Lake Whitefish"="LW",
+  mutate(sp=dplyr::recode(sp,"Kokanee"="KO","Lake Whitefish"="LW",
                    "Minnow (General)"="C")) %>% 
-  mutate(Maturity=recode(Maturity,"Immature"="IM")) %>% 
+  mutate(Maturity=dplyr::recode(Maturity,"Immature"="IM")) %>% 
   mutate(yearF = as.factor(year))
 
 
@@ -478,7 +480,7 @@ TR.map <- mapview(list(TR.pts,TR.lines),
                   layer.name = "year",
                   legend = list(T, F))
 
-print(TR.map)
+#print(TR.map)
 # fix points for clearwater trawls - off for both 2000 and 2021
 
 
@@ -489,7 +491,7 @@ GNTR.map <- mapview(list(GN.pts,TR.lines),
                     layer.name = "GNyear",
                     legend = list(T, F),
                     lwd=2) 
-print(GNTR.map)
+#print(GNTR.map)
 
 
 
@@ -563,27 +565,35 @@ ggplot(TR[!is.na(TR$FL),])+
 
 
 
-#### Combine all GN and TR catch ####
+#### Combine GN and TR catch ####
 
 GNshort <- GN %>% 
   mutate(start.date = as_date(start.datetime), method="GN") %>% 
-  select(method,year,site=Site,start.date,net.trawl.number=Net,sp,FL,wt,sex=Sex,
+  select(method,year,reach=Reach,site=Site,start.date,net.trawl.number=Net,sp,FL,wt,sex=Sex,
          mat=Maturity,age=ageN)
 
+site.reach <- data.frame(Station_ID=unique(TR$Station_ID), reach=c(rep("Parsnip",3),rep("Junction",3),
+                                                             rep("Finlay",2),rep("Peace",7),
+                                                             "Junction","Finlay","Peace","Peace"))
 TRshort <- TR %>% 
   mutate(method="TR") %>% 
-  select(method,year,site=Station_ID,start.date,net.trawl.number=Trawl_num,sp,FL,wt,sex,
+  left_join(site.reach, by="Station_ID") %>% 
+  select(method,year,reach,site=Station_ID,start.date,net.trawl.number=Trawl_num,sp,FL,wt,sex,
          mat=Maturity, age)
+  
 
 
 GNTR <- rbind(GNshort,TRshort) %>% 
   mutate(yearF = as.factor(year)) %>% 
   mutate(k = 100000*(wt/FL^3)) %>% 
-  mutate(logFL = log10(FL), logwt = log10(wt))
+  mutate(logFL = log10(FL), logwt = log10(wt)) %>% 
+  mutate(lcat10=lencat(FL, w=10)) #categorize age into 10 mm groups
 
 
-#### Fish comparisons #### 
-#check for changes in fish condition among years and changes in length at age
+
+
+#### FL-wt comparisons #### 
+#check for changes in fish condition among years 
 
 (plotlength.weight.rawKO <- ggplot(GNTR[which(GNTR$sp %in% "KO"),])+
   geom_point(aes(x=logFL, y=logwt, col=yearF))+
@@ -592,8 +602,8 @@ GNTR <- rbind(GNshort,TRshort) %>%
   facet_wrap(~method))+
   labs(title="KO all length-weights by year")
 
-#find outliers:
-GNTR %>% #first fish measured nthe Forebay in bad net sets
+#find extreme outliers:
+GNTR %>% #first fish measured in the Forebay in bad net sets
   filter(method %in% "GN", logFL >2.25 & logwt <1.5)
 GNTR %>% #KO caught at Finlay Forks FL 250, wt 110
   filter(method %in% "GN", year %in% 2021, logFL >=2.36 & logwt <2.06)
@@ -604,10 +614,17 @@ GNTR %>% #KO caught at Finlay Forks FL 141, wt 70
     geom_point(aes(x=logFL, y=logwt, col=method))+
   labs(title="KO all length-weights in 2021 by collection method"))
 
+#it there good overlap between methods (GN and TR) in KO fish condition?
+
+plot.compare.methods <- ggplot(GNTR[which(GNTR$sp %in% c("KO","LW")& GNTR$year %in% 2000),])+
+  geom_point(aes(x=logFL, y=logwt, col=method))+
+  geom_smooth(aes(x=logFL, y=logwt, col=method), method="lm",se = F)+
+  facet_wrap(~sp)+
+  labs(title="2000 compare KO and LW caught in GN and TR")
+plot.compare.methods
 
 
-#GNTR[which(GNTR$sp %in% "KO"),]
-
+# eject 2021 GN weights for KO and insert predicted weights from TR
 GNTR.measuredwts <- GNTR %>% 
   filter(year %in% 2021, method %in% "TR", sp %in% "KO") %>% 
   filter(!is.na(FL), !is.na(wt)) %>% 
@@ -642,37 +659,119 @@ GNTRwts <- GNTR.measuredwts %>%
     geom_errorbar(aes(x=logFL, ymin=log10(pred.wt.lwr), 
                       ymax=log10(pred.wt.upr)), col="light blue")+
     geom_point(aes(x=logFL, y=logwt, col=wt.pred))+
-    labs(title="KO measured and predicted weights in 2021"))
+    labs(title="KO measured and predicted weights in 2021",
+         y="log weight (+/- 95% CI)"))
 
 #viewed together with other years of data:
 
-GNTRwts.allyrs <- GNTR %>% 
+GNTRwts.allyrsKO <- GNTR %>% 
   filter(year != 2021, sp %in% "KO") %>% 
   mutate(wt.pred = as.character("measured")) %>% 
-  full_join(GNTRwts)
+  full_join(GNTRwts) %>% 
+  mutate(k = 100000*(wt/FL^3))
 
-GNTRwts.allyrs[which(GNTRwts.allyrs$wt.pred %in% "measured"),]
 
-ggplot(GNTRwts.allyrs[which(GNTRwts.allyrs$wt.pred %in% "measured"),])+
+# all weights in here with predicted
+ggplot(GNTRwts.allyrsKO)+
   geom_errorbar(aes(x=logFL, ymin=log10(pred.wt.lwr), 
                     ymax=log10(pred.wt.upr)), col="light blue")+
   geom_point(aes(x=logFL, y=logwt, col=yearF))+
   geom_smooth(aes(x=logFL, y=logwt, col=yearF), method="lm")
 
+# only measured weights
+(plot.FLwtbyyear <- ggplot(GNTRwts.allyrsKO[which(GNTRwts.allyrsKO$wt.pred %in% "measured"),])+
+  geom_errorbar(aes(x=logFL, ymin=log10(pred.wt.lwr), 
+                    ymax=log10(pred.wt.upr)), col="light blue")+
+  geom_point(aes(x=logFL, y=logwt, col=yearF))+
+  geom_smooth(aes(x=logFL, y=logwt, col=yearF), linewidth=0.75,method="lm", se=T)+
+  labs(title="Compare weight and fork length by year for Kokanee (measured only)"))
 
 #compare slopes between years (fit1 does not use predicted weights)
-library(car)
 
-fit1.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrs[which(GNTRwts.allyrs$wt.pred %in% "measured"),])
-fit2.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrs)
+fit1.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrsKO[which(GNTRwts.allyrsKO$wt.pred %in% "measured"),])
 car::Anova(fit1.ko)
+
+
+
+
+
+#truncate to larger sizes only (>100mm):
+#actually instead of using the size cut-off, maybe should use GN v TR?
+#In the end I kept the size cut-off since there were only really GN fish over
+# this size range, so 2021 would have had to be left out.
+
+GNTRwts.allyrsbigKO <- GNTRwts.allyrsKO %>%
+  filter(logFL>2)
+# GNTRwts.allyrsbigKO <- GNTRwts.allyrsKO %>% 
+#     filter(method %in% "GN")
+
+# only bigger KO (>100mm) - using predicted weights
+plot.FLwtbyyearbigpred <- ggplot(GNTRwts.allyrsbigKO)+
+    geom_errorbar(aes(x=logFL, ymin=log10(pred.wt.lwr), 
+                      ymax=log10(pred.wt.upr)), col="light blue")+
+    geom_point(aes(x=logFL, y=logwt, col=yearF))+
+    geom_smooth(aes(x=logFL, y=logwt, col=yearF), linewidth=0.75,method="lm", se=T)+
+  labs(title="Compare weight and fork length by year for Kokanee >100mm- with Predicted",
+       y="logwt (+/- 95CI for predicted points")
+plot.FLwtbyyearbigpred
+
+#fit2 uses predicted weights ## shouldn't we generate a range of points within the 95% CI to capture variability in test?
+fit2.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrsbigKO)
 car::Anova(fit2.ko)
 
 
 
+# only bigger KO (>100mm) - NOT using predicted weights
+(plot.FLwtbyyearbignopred <- ggplot(GNTRwts.allyrsbigKO[which(GNTRwts.allyrsbigKO$wt.pred %in% "measured"),])+
+    geom_point(aes(x=logFL, y=logwt, col=yearF))+
+    geom_smooth(aes(x=logFL, y=logwt, col=yearF), linewidth=0.75,method="lm", se=T)+
+  labs(title="Compare weight and fork length by year for Kokanee >100mm- without Predicted"))
 
 
-# length at age 
+#fit3 does not use predicted weights 
+fit3.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrsbigKO[which(GNTRwts.allyrsbigKO$wt.pred %in% "measured"),])
+car::Anova(fit3.ko)
+
+
+#### Compare Fulton's K ####
+
+
+(plot.Kbyagehistogram <-ggplot(GNTRwts.allyrsKO[GNTRwts.allyrsKO$wt.pred %in% "measured",])+
+  geom_histogram(aes(x=k, fill=as.factor(age)), col="black", binwidth=0.02)+
+  facet_wrap(~yearF, nrow=3))
+
+
+GNTR.KO.byreach <- GNTRwts.allyrsKO %>% 
+  filter(wt.pred %in% "measured", reach %in% "Peace")
+
+ggplot(GNTR.KO.byreach)+
+    geom_histogram(aes(x=k, fill=as.factor(age)), col="black", binwidth=0.02)+
+    facet_wrap(~yearF, nrow=3)
+
+
+# ggplot(GNTRwts.allyrsKO[GNTRwts.allyrsKO$wt.pred %in% "measured",])+
+#   geom_jitter(aes(x=age, y=k, col=yearF), height=0, width=0.2)+
+#   geom_smooth(aes(x=age, y=k, col=yearF), method="loess")
+
+plot.Kagebyyear <- ggplot(GNTRwts.allyrsKO)+
+  geom_jitter(aes(x=age, y=k, col=yearF), height=0, width=0.2)+
+  geom_smooth(aes(x=age, y=k, col=yearF), method="loess")
+plot.Kagebyyear
+
+plot.Kagebyyear.reach <- ggplot(GNTRwts.allyrsKO)+
+  geom_jitter(aes(x=age, y=k, col=yearF), height=0, width=0.2)+
+  geom_smooth(aes(x=age, y=k, col=yearF), method="loess")+
+  facet_wrap(~reach)
+plot.Kagebyyear.reach
+
+
+
+
+
+
+
+
+#### Length at age ####
 
 ggplot(GN[which(GN$sp %in% "KO"),])+
   geom_jitter(aes(x=ageN,y=FL, col=as.factor(year)))+
@@ -683,45 +782,310 @@ ggplot(GN[which(GN$sp %in% "KO"),])+
 
 ggplot(GN[which(GN$sp %in% "KO"),])+
   geom_jitter(aes(x=ageN,y=FL, col=as.factor(year)))+
-  facet_wrap(~Maturity) 
+  facet_wrap(~Maturity)
 # Likely some mis-IDs of maturity in here. All "M" should likely be "MT"
 
 
 #plot FL and Age by species
-ggplot(GN[!is.na(GN$FL),])+
-  geom_jitter(aes(x=ageN,y=FL, col=sp))+
+ggplot(GNTR[!is.na(GNTR$FL),])+
+  geom_jitter(aes(x=age,y=logFL, col=sp))+
   facet_wrap(~year, nrow=3)
 #note that only estimated KO ages avail for 2021
 
 
+
+#how many fish were aged in 2000 and 2008?
+
+(aged <- GNTR %>%
+  filter(year != 2021) %>%
+  group_by(yearF, sp) %>%
+  summarize(total = length(sp),aged = length(which(!is.na(age)))))
+#looks like LW from 2000 would benefit from some ALK but 2008 aged the majority of their fish
+
+ggplot(GNTR[GNTR$sp %in%"LW"&GNTR$year %in% 2000,])+
+  geom_histogram(aes(x=FL,fill=is.na(age)), col="black")
+
+agedLW2000 <- GNTR %>%
+  dplyr::filter(year %in% 2000,  sp %in% "LW", !is.na(age)) %>%
+  mutate(age.predict = "measured") %>%
+  arrange(lcat10)
+
+notagedLW2000 <- GNTR %>%
+  dplyr::filter(year %in% 2000,  sp %in% "LW", is.na(age)) %>%
+  mutate(age.predict = "predicted") %>%
+  arrange(lcat10)
+
+# cannot predict beyond the minimum ages lcat so filter out for predicting ages.
+#are there any that are too small to be estimated?
+(n.toosmall.prev <- length(which(notagedLW2000$FL < min(agedLW2000$lcat10, na.rm=T))))
+
+(alk.freq <- xtabs(data=agedLW2000, ~lcat10+age))
+rowSums(alk.freq)
+
+alk <- prop.table(alk.freq,margin=1)
+round(alk,3)
+
+# predict individual ages for unaged sample (Isermann+Knight 2005 method)
+notagedLW2000 <- alkIndivAge(alk,age~FL,data=notagedLW2000)
+#if this says the max observed length exceeded max aged length, may want to take out of extrapolation
+
+LW2000 <- rbind(agedLW2000,notagedLW2000)
+(LW.ALKpredict <- ggplot(LW2000)+
+  geom_point(aes(x=age,y=FL, col=age.predict))+
+  geom_smooth(aes(x=age,y=FL, col=age.predict), method="loess")+
+    labs(title= "Lake Whitefish ages predicted for measured/unaged fish in 2000"))
+
+ggplot(LW2000)+
+  geom_point(aes(x=lcat10, y=age, col=mat))
+
+GNTR <- full_join(GNTR[-which(GNTR$year %in% 2000 & GNTR$sp %in% "LW" & is.na(GNTR$age)),],
+          notagedLW2000)
+
+
+
+#is there a difference between the length at age among years? Kinda pointless for LW
+# until there are ages for 2021
+#LW
+mod1LW <- nnet::multinom(age~lcat10,data=GNTR[which(GNTR$sp %in% "LW"),],maxit=500)
+mod2LW <- nnet::multinom(age~lcat10*yearF,data=GNTR[which(GNTR$sp %in% "LW"),],maxit=500)
+anova(mod1LW,mod2LW) 
+
+#is there a difference between the length at age among years?
+#KO
+mod1KO <- nnet::multinom(age~lcat10,data=GNTR[which(GNTR$sp %in% "KO"),],maxit=500)
+mod2KO <- nnet::multinom(age~lcat10*yearF,data=GNTR[which(GNTR$sp %in% "KO"),],maxit=500)
+
+anova(mod1KO,mod2KO) #signif difference among years
+
+
+
 #KO ages from trawl and gillnet combined:
 ggplot(GNTR[which(GNTR$sp %in%"KO"),]) +
-  geom_histogram(aes(x=FL, fill=as.factor(age)), binwidth=5,position = "stack")+
-  facet_wrap(~year, nrow=3)
+  geom_histogram(aes(x=FL, fill=as.factor(age)), binwidth=5,position = "stack",
+                 col="black")+
+  facet_wrap(~year, nrow=3)+
+  labs(title="KO count by age (note 2021 is prelim)")
 #some very old kokanee in 2000? No age 0s in 2008 b/c no trawling
 
-#length at age, all together
-ggplot(GNTR[which(GNTR$sp %in%"KO"),])+
-  geom_jitter(aes(x=age,y=FL,col=yearF))
-
-
-#condition for kokanee and lake whitefish by year
-ggplot(data=GNTR[which(GNTR$sp %in% c("KO","LW")),]) +
-  geom_histogram(aes(x=k, fill=sp), colour = "black")+
-  geom_vline(xintercept = 1, linetype="dashed")+
+#LW ages from trawl and gillnet combined:
+ggplot(GNTR[which(GNTR$sp %in%"LW"),]) +
+  geom_histogram(aes(x=FL, fill=as.factor(age)), binwidth=5,position = "stack",
+                 col="black")+
   facet_wrap(~year, nrow=3)+
-  labs(y="Frequency", x="Fulton's k", fill="sp")
-  
-#condition by age for kokanee by year
-ggplot(data=GNTR[which(GNTR$sp %in% c("KO")),]) +
-  geom_histogram(aes(x=k, fill=as.factor(age)), colour = "black")+
-  geom_vline(xintercept = 1, linetype="dashed")+
+  labs(title="LW count by age (note 2021 is prelim)")
+
+#RB ages from trawl and gillnet combined:
+ggplot(GNTR[which(GNTR$sp %in%"RB"),]) +
+  geom_histogram(aes(x=FL, fill=as.factor(age)), binwidth=5,position = "stack",
+                 col="black")+
   facet_wrap(~year, nrow=3)+
-  labs(y="Frequency", x="Fulton's k", fill="age")
-
-#remove transient objects
-rm(fish.GN00,fish.GN21,site.GN00,site.GN21, exclude, GN2000,GN2008,GN2021,
-   GNshort,latitudes,latitudes21,longitudes,longitudes21,log.TR00,TR2000,
-   TR2021,TR2000short,TRshort,fish.TR00,fish.TR21, locations,locations21)
+  labs(title="RB count by age (note 2021 is prelim)")
 
 
+
+
+# Von Bert curves #### 
+
+vbTyp <- function(age,Linf,K,t0) Linf*(1-exp(-K*(age-t0)))
+
+#LW
+
+#2000
+LW2000
+( svTyp <- FSA::vbStarts(FL~age,data=LW2000) )
+#svTyp <- list(Linf=max(LW2000$FL,na.rm=TRUE),K=0.46,t0=0)
+
+
+fitTyp <- stats::nls(FL~vbTyp(age,Linf,K,t0),data=LW2000,start=svTyp)
+
+(LW2000.all.coeff <- coef(fitTyp))
+
+confint(fitTyp) #one type of confidence interval...see below for other
+#par(mfrow=c(2,2))
+# plot(fitTyp,loess = T) # if this plot makes a funnel shape, see Ogle's IFAR book for alternate method
+
+x.prev <- seq(0,max(LW2000$age, na.rm=T),length.out=199)        # ages for prediction
+pTyp.prev <- vbTyp(x.prev,Linf=coef(fitTyp)[1], K = coef(fitTyp)[2], t0 = coef(fitTyp)[3])   # predicted lengths
+
+LW2000.df <- data.frame(x.prev, pTyp.prev, yearF = as.factor("2000"))
+
+(label.LW2000 <- paste0("2000",": ",round(LW2000.all.coeff[1],2),
+                        "*","(1-exp(-",round(LW2000.all.coeff[2],2),
+                        "*","(age - ",round(LW2000.all.coeff[3],2),"))"))
+
+
+# 2008
+
+#LW
+LW2008 <- GNTR %>%
+  filter(year %in% 2008, sp %in% "LW")
+
+( svTyp <- vbStarts(FL~age,data=LW2008) )
+#svTyp <- list(Linf=max(LW2000$FL,na.rm=TRUE),K=0.46,t0=0)
+
+fitTyp <- nls(FL~vbTyp(age,Linf,K,t0),data=LW2008,start=svTyp)
+
+(LW2008.all.coeff <- coef(fitTyp))
+
+#confint(fitTyp) #did not work
+# par(mfrow=c(2,2))
+# plot(fitTyp,loess = T) # if this plot makes a funnel shape, see Ogle's IFAR book for alternate method
+
+x.prev <- seq(0,max(LW2008$age, na.rm=T),length.out=199)        # ages for prediction
+pTyp.prev <- vbTyp(x.prev,Linf=coef(fitTyp)[1], K = coef(fitTyp)[2], t0 = coef(fitTyp)[3])   # predicted lengths
+
+LW2008.df <- data.frame(x.prev, pTyp.prev, yearF = as.factor("2008"))
+
+# LW 2021
+#cannot do LW 2021 b/c no ages yet...
+
+#labels
+
+(label.LW2008 <- paste0("2008",": ",round(LW2008.all.coeff[1],2),
+                        "*","(1-exp(-",round(LW2008.all.coeff[2],2),
+                        "*","(age - ",round(LW2008.all.coeff[3],2),"))"))
+
+
+#combine
+LW.ages <- rbind(LW2000,LW2008)
+LW.ages.vonb <- rbind(LW2000.df,LW2008.df)
+
+#plot together
+
+LWages.plot <- ggplot()+
+  geom_jitter(data=LW.ages, aes(x=age, y=FL, col=yearF),width = 0.15,
+              size=3, alpha=0.6)+
+  geom_text(aes(x=8,y=150, label=label.LW2000))+
+  geom_text(aes(x=8,y=125, label=label.LW2008))+
+  geom_line(data=LW.ages.vonb, aes(x=x.prev, y=pTyp.prev, col=yearF), linewidth=1)
+LWages.plot
+
+
+
+
+#KO (2021 age estimated at the moment)
+KO2000 <- GNTR %>%
+  filter(year %in% 2000, sp %in% "KO")
+
+( svTyp <- vbStarts(FL~age,data=KO2000) )
+#svTyp <- list(Linf=max(LW2000$FL,na.rm=TRUE),K=0.46,t0=0)
+
+vbTyp <- function(age,Linf,K,t0) Linf*(1-exp(-K*(age-t0)))
+fitTyp <- nls(FL~vbTyp(age,Linf,K,t0),data=KO2000,start=svTyp)
+
+(KO2000.all.coeff <- coef(fitTyp))
+
+confint(fitTyp) #one type of confidence interval...see below for other
+# par(mfrow=c(2,2))
+# plot(fitTyp,loess = T) # if this plot makes a funnel shape, see Ogle's IFAR book for alternate method
+
+x.prev <- seq(0,max(KO2000$age, na.rm=T),length.out=199)        # ages for prediction
+pTyp.prev <- vbTyp(x.prev,Linf=coef(fitTyp)[1], K = coef(fitTyp)[2], t0 = coef(fitTyp)[3])   # predicted lengths
+
+KO2000.df <- data.frame(x.prev, pTyp.prev,yearF = as.factor("2000"))
+
+(label.KO2000 <- paste0("2000",": ",round(KO2000.all.coeff[1],2),
+                        "*","(1-exp(-",round(KO2000.all.coeff[2],2),
+                        "*","(age - ",round(KO2000.all.coeff[3],2),"))"))
+
+#KO 2008
+KO2008 <- GNTR %>%
+  filter(year %in% 2008, sp %in% "KO")
+
+(svTyp <- vbStarts(FL~age,data=KO2008))
+fitTyp <- nls(FL~vbTyp(age,Linf,K,t0),data=KO2008,start=svTyp)
+
+(KO2008.all.coeff <- coef(fitTyp))
+confint(fitTyp)
+
+# par(mfrow=c(2,2))
+# plot(fitTyp,loess = T) # if this plot makes a funnel shape, see Ogle's IFAR book for alternate method
+
+x.prev <- seq(0,max(KO2008$age, na.rm=T),length.out=199)        # ages for prediction
+pTyp.prev <- vbTyp(x.prev,Linf=coef(fitTyp)[1], K = coef(fitTyp)[2], t0 = coef(fitTyp)[3])   # predicted lengths
+
+KO2008.df <- data.frame(x.prev, pTyp.prev,yearF = as.factor("2008"))
+
+(label.KO2008 <- paste0("2008",": ",round(KO2008.all.coeff[1],2),
+                        "*","(1-exp(-",round(KO2008.all.coeff[2],2),
+                        "*","(age - ",round(KO2008.all.coeff[3],2),"))"))
+
+
+#KO 2021
+#KO (2021 age estimated at the moment)
+KO2021 <- GNTR %>%
+  filter(year %in% 2021, sp %in% "KO")
+
+#( svTyp <- vbStarts(FL~age,data=KO2021) ) #currently does not work - provide with values
+svTyp <- list(Linf=max(KO2021$FL,na.rm=TRUE),K=0.3,t0=0)
+
+fitTyp <- nls(FL~vbTyp(age,Linf,K,t0),data=KO2021,start=svTyp)
+
+(KO2021.all.coeff <- coef(fitTyp))
+
+confint(fitTyp) #one type of confidence interval...see below for other
+# par(mfrow=c(2,2))
+# plot(fitTyp,loess = T) # if this plot makes a funnel shape, see Ogle's IFAR book for alternate method
+
+x.prev <- seq(0,max(KO2021$age, na.rm=T),length.out=199)        # ages for prediction
+pTyp.prev <- vbTyp(x.prev,Linf=coef(fitTyp)[1], K = coef(fitTyp)[2], t0 = coef(fitTyp)[3])   # predicted lengths
+
+KO2021.df <- data.frame(x.prev, pTyp.prev, yearF = as.factor("2021"))
+
+(label.KO2021 <- paste0("2021",": ",round(KO2021.all.coeff[1],2),
+                        "*","(1-exp(-",round(KO2021.all.coeff[2],2),
+                        "*","(age - ",round(KO2021.all.coeff[3],2),"))"))
+
+
+# combine
+KO.ages <- rbind(KO2000,KO2008,KO2021)
+KO.ages.vonb <- rbind(KO2000.df,KO2008.df,KO2021.df)
+
+# plot together
+KOages.plot <- ggplot()+
+  geom_jitter(data=KO.ages, aes(x=age, y=FL, col=yearF),width = 0.15,
+              size=3, alpha=0.6)+
+  geom_text(aes(x=4,y=100, label=label.KO2000))+
+  geom_text(aes(x=4,y=80, label=label.KO2008))+
+  geom_text(aes(x=4,y=60, label=label.KO2021))+
+  geom_line(data=KO.ages.vonb, aes(x=x.prev, y=pTyp.prev,col=yearF), linewidth=1)
+KOages.plot
+
+
+
+
+
+
+# #OLD#
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# #KO length at age, all together
+# ggplot(GNTR[which(GNTR$sp %in%"KO"),])+
+#   geom_jitter(aes(x=age,y=FL,col=yearF))
+# 
+# 
+# #condition for kokanee and lake whitefish by year
+# ggplot(data=GNTR[which(GNTR$sp %in% c("KO","LW")),]) +
+#   geom_histogram(aes(x=k, fill=sp), colour = "black")+
+#   geom_vline(xintercept = 1, linetype="dashed")+
+#   facet_wrap(~year, nrow=3)+
+#   labs(y="Frequency", x="Fulton's k", fill="sp")
+# 
+# #condition by age for kokanee by year
+# ggplot(data=GNTR[which(GNTR$sp %in% c("KO")),]) +
+#   geom_histogram(aes(x=k, fill=as.factor(age)), colour = "black")+
+#   geom_vline(xintercept = 1, linetype="dashed")+
+#   facet_wrap(~year, nrow=3)+
+#   labs(y="Frequency", x="Fulton's k", fill="age")
+# 
+# #remove transient objects
+# # rm(fish.GN00,fish.GN21,site.GN00,site.GN21, GN2000,GN2008,GN2021,
+# #    GNshort,latitudes,latitudes21,longitudes,longitudes21,log.TR00,TR2000,
+# #    TR2021,TR2000short,TRshort,fish.TR00,fish.TR21, locations,locations21)
+# 
+# 
