@@ -1,13 +1,17 @@
 ---
-title: "Change in Fish Composition: Williston ATS GN surveys"
+title: 'Change in Fish Composition: Williston ATS GN surveys'
 author: "Kristen Peck"
 date: "`r format(Sys.time(), '%Y-%m-%d')`"
-always_allow_html: true
-output: 
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
   html_document:
-    toc: true
-    number_sections: true
+    toc: yes
+    number_sections: yes
     toc_depth: 2
+fig_caption: yes
+always_allow_html: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -17,11 +21,7 @@ library(readxl)
 library(sf)
 library(mapview)
 
-
 source("ATS2021.R")
-
-
-
 
 ```
 
@@ -52,17 +52,18 @@ The data formats were different for each year and also between the gillnet and t
 
 # Results
 
+## Gillnetting locations (interactive map)
+
+```{r GN map, echo=F,fig.cap="Map of the starting point of gillnet locations by year. "}
+GN.map
+```
+
 ## Summary of gillnet sets per year
 
 ```{r effort summary, echo=F, warning=F, message=F}
-print.data.frame(efforts.per.year)
+knitr::kable(efforts.per.year)
 ```
 
-## Gillnetting locations (interactive map)
-
-```{r GN map, echo=F}
-GN.map
-```
 
 ## GN CPUE - Making the Data Comparable
 
@@ -72,17 +73,17 @@ Examine whether RIC6 nets caught fish in 130:160mm FL range:
 
 ```{r RIC6 130 to 160mm ,echo=F, warning=F, message=F}
 
-print.data.frame(RIC6.fish)
+knitr::kable(RIC6.fish)
 RIC6plot
 
 
 ```
 
-And how many in this range caught by RIC7s:
+And how many in th 130-160 mm range were caught by RIC7s (which were only used in 2021):
 
 ```{r RIC7 130 to 160mm ,echo=F, warning=F, message=F}
 
-print.data.frame(RIC7.fish)
+knitr::kable(RIC7.fish)
 RIC7plot
 
 ```
@@ -94,8 +95,11 @@ Kokanee and Lake Whitefish are likely the only two species that should be compar
 
 After the extra panel target size is removed and the sites are more or less made equivalent, we still have the problem that different depths were set each year - surface sets only for 2000 and 2008 and mostly 5 - 20 m depth for 2021. What this looks like when looking at CPUE by depth for Kokanee and Lake Whitefish:
 
-```{r CPUE by depth KO and LW ,echo=F, warning=F, message=F}
+```{r CPUE by depth KO,echo=F, warning=F, message=F, fig.cap="CPUE by site, net depth and year for Kokanee."}
 CPUEKOplot
+```
+
+```{r CPUE by depth LW ,echo=F, warning=F, message=F, fig.cap="CPUE by site, net depth and year for Lake Whitefish"}
 CPUELWplot
 ```
 
@@ -109,7 +113,7 @@ knitr::kable(table.cpue.stats, digits=2)
 
 If we pick only the sites with more than one year of netting data (Clearwater, Forebay, Finlay Forks, and Heather Point) and compare the CPUE of the two species:
 
-```{r CPUE select sites,echo=F, warning=F, message=F}
+```{r CPUE select sites,echo=F, warning=F, message=F, fig.cap="Mean CPUE (+/-95CI) for Kokanee (in purple) and Lake Whitefish (in blue) among years. Only sites with more than one year of sampling is shown. NOTE that each species should only be interpreted alone, not relative to the other species due to likely differences in vulnerability to the gillnets."}
 plot.mn.cpue
 ```
 
@@ -139,36 +143,133 @@ And for Lake Whitefish:
 summary(lm(data=compare.sites.raw,formula= LW~year*Site))
 ```
 
-Neither test is particularly conclusive - there may have been an overall increase in Kokanee CPUE from 2000 to 2021, and an overall decrease in Lake Whitefish CPUE over the same time, but each site is a little different. That should be expected in a reservoir this size. However, we had to remove a lot of the data (a range of FL, many of the sites including all of the Finlay Reach sites, half of the depths in 2021) to get to this point of comparability so a) we should really think about using these results as a generalization for the whole reservoir and b) given the small sample sizes here there may actually be a huge change in composition over time that is just hinted at in these results. 
+Neither test is particularly conclusive - when only looking at a year effect, there was a trend of an overall increase in Kokanee CPUE from 2000 to 2021 at the four sites, and an overall decrease in Lake Whitefish CPUE over the same time, but each site is a little different. When I added in the site interaction, the year effect became much more strong for Kokanee - i.e. a definite increase in CPUE at these sites over time - but disappeared for Lake Whitefish. The strong influence of the site should be expected in a reservoir this size. However, we had to remove a lot of the data (a range of FL, many of the sites including all of the Finlay Reach sites, half of the depths in 2021) to get to this point of comparability so a) we should really think about using these results as a generalization for the whole reservoir and b) given the small sample sizes here there may actually be a huge change in composition over time that is just hinted at in these results. 
 
-I will give the length at age more of a look once the age data are settled, and the trawl catch change in condition over time (GN data in 2021 is pretty much tossable for fish condition). If they all point in the same direction, that may indicate a change in fish composition over time.
+If the fish information points in the same direction as the CPUE (i.e. assuming density dependence and no change in food resources, Lake Whitefish are larger at age/better condition than in 2000, and Kokanee are the inverse), that may indicate a change in fish composition over time.
+
 
 ## Changes in fish condition
 
-Another way to investigate changes in fish composition is to look at changes in fish condition. The assumptions behind this comparison are that the methods used among years are comparable - i.e. that measurements were taking without error in each year and a sufficient sample was measured to cover the range of captured fish. This assumption, we know, was violated in the gill netting data in 2021 since the tools used to obtain weights were too coarse. We can explore if any other data seems hinky before trying to compare:
+The assumptions behind these comparisons are that the methods used among years are comparable - i.e. that measurements were taking without error in each year and a sufficient sample was measured to cover the range of captured fish. This assumption, we suspect, was violated in the gill netting data in 2021 since the tools used to obtain weights were too coarse (hanging pesola scales, non-calibrated). We need to spend some time making the data comparable before proceeding:
 
-```{r length-weight KO by year, echo=F}
+```{r length-weight KO by year, echo=F,warning=F, message=F, fig.cap="Kokanee length-weight measurements by year collected with gillnet (GN) and trawl (TR). Note that there was no trawling in 2008."}
 plotlength.weight.rawKO
 
 ```
 
-We can see in the above plot (which is zoomed in to the GN size of catch) that there is a much wider spread of weights in the 2021 GN measurements and they are all slightly above previous years of catch, as well as some outliers. This may be demonstrating a real change in the fish conditions, except that if we compare to the trawl data from the same survey:
+We can see in the above plot that there is a much wider spread of Kokanee weights in the 2021 GN measurements and they are all slightly above previous years of catch, as well as some obvious outliers. This may be demonstrating a real change in the fish condition, except that if we compare to the trawl data from the same survey:
 
-```{r length-weight KO by method, echo=F}
+```{r length-weight KO by method, echo=F,warning=F, message=F}
 plotlength.weightKO.2021
 ```
 
-So unfortunately the weights from the gill netting should be discarded entirely, since they are both inaccurate and imprecise. However, there is a large overlap in fork length sizes from the trawl catches of Kokanee, so the weights and individual weight error intervals can be predicted from the fork lengths following Ogle (2016):
+So unfortunately the Kokanee weights from the gill netting (`r paste0("n= ",nrow(GNTR.predwts))`) should be discarded entirely, since they are both inaccurate and imprecise. However, there is a large overlap in fork length sizes from the trawl catches of Kokanee (`r paste0("n= ",nrow(GNTR.measuredwts))`) in 2021, so the weights and individual weight error intervals can be predicted from the fork lengths following Ogle (2016):
 
-```{r predicted weights, echo=F}
+```{r predicted weights, echo=F, warning=F, message=F}
 plotpred.weightKO.2021
 ```
 
-This can only be done for Kokanee since no other species was caught in great enough numbers in the trawl.
+This can only be done for Kokanee since no other species was caught in great enough numbers in the trawl in 2021. A big assumption here is that the gear (gillnet vs trawl net) are collecting the same fish of the same fork length (e.g. gill net fish are not fatter or skinnier than trawl fish). We can see from the 2000 concurrent gillnet and trawl measurements for Kokanee that the Kokanee sizes overlap, so the assumption that the two methods select for the same condition of fish is met (though would be great to look at other water bodies with a bigger sample size - Kinbasket??). Note that the predicted fork lengths and weights exceed the measured lengths and weights so these should be interpreted with caution.
 
+```{r compare methods, echo=F,warning=F, message=F}
+plot.compare.methods
 
+```
 
+I am still pondering whether it is reasonable to use these predicted weights in a statistical comparison among years since they would underestimate the error, so for now I will leave them out, or point it out if I do use them. 
 
+```{r KO weight-length, echo=F, warning=F, message=F}
+plot.FLwtbyyear
+paste("lm(logwt~logFL*yearF")
+car::Anova(fit1.ko)
+```
 
+Though the plot of Kokanee length-weight above does not look like it is showing a difference between years, the overall ANOVA identifies a statistical difference between years, and possibly a difference between the slope for at least one year and the others. One issue is that in 2000 and 2021 there were not that many age-0s measured, so there is some potential leverage on the small end of Kokanee. In 2008 this size range of Kokanee was not even sampled since there was no trawl. If we chop the comparison at fish 100 mm and larger we can see if those points were really affecting the ANOVA. For this comparison we can use the predicted weights and no predicted weights to see how they differ.
 
+```{r KO weigth-length 100mm predicted, echo=F, warning=F, message=F}
+plot.FLwtbyyearbigpred
+car::Anova(fit2.ko)
+```
 
+```{r KO weigth-length 100mm, echo=F,warning=F, message=F}
+plot.FLwtbyyearbignopred
+car::Anova(fit3.ko)
+```
+
+We can see that the inclusion of the gillnetted predicted weights is pretty key to whether or not there is a change in Kokanee condition as fish get larger in 2021 (compared to 2000 and 2008 which have parallel slopes) but it appears that Kokanee are in a better condition across all sizes in 2000 (ie.there is a small but consistent statistical year effect during all test). 
+
+If you believe that the gill net fish Fork Lengths were measured without bias and that the predicted relationship between trawled fork length and weight holds for larger Kokanee, then it is possible that the abundant age 1 fish from 2021 have a lower condition due to density dependence and the larger fish are free of that. This is just a snapshot of the fish assemblage in a single year, so it is hard to know if this pattern would move through with the cohort, or if it is now a pattern every year. Next we can take a closer look at the condition factor at age using Fulton's K(using measured weights only).
+
+*NOTE:* need to do this for LW still.
+
+## Fulton's K
+
+```{r KO K freq, echo=F,warning=F, message=F}
+plot.Kbyagehistogram
+```
+
+Some things to point out in the above histogram: 2000 has some very complex age structure and suspiciously old Kokanee (perhaps mis-ID'd rainbows?); 2008 had no trawls so the age 0 component is absent, which generally have a lower condition factor than the older ages in 2000 and 2021; 2021 had a dominant age 1 component (though ages are still preliminary) while 2008 had more 2s and 3s in the gillnet catch.
+
+Here is another way to look at this by plotting Fulton's K at each (jittered) age with a loess curve (note 2021 ages are still preliminary):
+
+```{r KO K by age, echo=F, warning=F, message=F, fig.cap="Fulton's condition factor for Kokanee caught each year by the age they were classified into."}
+plot.Kagebyyear
+```
+
+2008 condition factor sits below the 2000 and 2021 Kokanee but there was only sampling in the Peace Reach, so we will look at patterns across the reaches.
+
+```{r KO K by age and reach, echo=F, warning=F, message=F}
+plot.Kagebyyear.reach
+```
+
+We can see that the pattern of 2008 having a lower K at age still holds even when only comparing within the Peace Reach. 
+
+## Length at age
+
+The ages from 2021 are still unavailable except for predicted ages of Kokanee based on size breaks. Looking back at 2000 and 2008 we can see if it is worth extrapolating ages using an age-length key where only a subset of measured fish were aged. 
+
+```{r number aged by sp, echo=F, warning=F, message=F}
+knitr::kable(aged,col.names = c("Year","Species","Total Caught","Aged"),align = "l")
+
+```
+
+It looks like the only species and year that would benefit from estimating ages from the fork length is Lake Whitefish in 2000, where the entire range of fork lengths were subsampled for aging (not shown). I will use the Age-Length Key (ALK) method from Ogle (2016) to estimate the ages of Lake Whitefish measured for fork length but not aged. I will combine these will measured ages from now on for Lake Whitefish in 2000. 
+
+```{r LW ALK sizes, echo=F, warning=F, message=F}
+LW.ALKpredict
+```
+
+We can then compare whether ages over the years have changed using a multinomial analysis described in Ogle (2016). Fork Lengths were categorized into 10 mm categories and compared to the age in an Age-Length Key. For Kokanee we can do this for all years (though the 2021 ages are still preliminary) but there are no ages available for 2021 yet for Lake Whitefish so the statistical comparison is only between 2000 and 2008.
+
+Difference in ALK for Kokanee between 2000, 2008, and 2021 (prelim ages):
+
+```{r diffs among years ALK KO, echo=F, warning=F, message=F}
+paste("KO: comparing age~lcat10 and age~lcat10*yearF :")
+anova(mod1KO,mod2KO)
+```
+
+Difference in ALK for Lake Whitefish between 2000 and 2008:
+
+```{r diffs among years ALK LW, echo=F, warning=F, message=F}
+paste("LW: comparing age~lcat10 and age~lcat10*yearF :")
+anova(mod1LW,mod2LW)
+
+```
+
+The above tests say that there is a statistical difference between years (2000, 2008, and 2021) in the age-length key for Kokanee, but no difference in the age-length key between 2000 and 2008 for Lake Whitefish.
+
+We can visualize the Von Bertalanffy growth functions of each year to see if we can spot the change over time in the mean length-at-age for each species. According to the ALK multinomial test, there was no statistical difference between 2000 and 2008 for Lake Whitefish and we can see that there are only visible differences at the extreme ages:
+
+```{r Von bert for LW, echo=F, warning=F, message=F, fig.cap="Von Bertalanffy growth curves for Lake Whitefish. The equations are showing the VB growth function parameters for each year, including Linf, k and L0."}
+
+LWages.plot
+
+```
+
+According to the ALK test above for Kokanee, there was a statistical difference among years. This is what it looks like in a mean length-at-age curve:
+
+```{r Von bert for KO, echo=F, warnings=F, message=F,fig.cap="Von Bertalanffy growth curves for Kokanee. The equations are showing the VB growth function parameters for each year, including Linf, k and L0."}
+KOages.plot
+```
+
+Again we see that funky age old age structure for 2000, and the lack of small KO (due to lack of trawl) in 2008. However, the Linfinity has been potentially decreasing through the years? Will have to re-do once the age data are fixed.
