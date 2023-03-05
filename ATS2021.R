@@ -39,7 +39,7 @@ fish.GN21 <- read_excel("Williston_Gillnet_Set_data_20211014_revised_KP.xlsx",
               
 
 GN2021 <- site.GN21 %>% 
-  left_join(fish.GN21, by=c("Site","Net"="Net#")) %>% 
+  full_join(fish.GN21, by=c("Site","Net"="Net#"),multiple="all") %>% 
   mutate(year = 2021) %>% 
   mutate(set.hr = hour(`Set Time`), set.min = minute(`Set Time`),
          retrieve.hr = hour(`Retrieval Time`),
@@ -105,7 +105,7 @@ fish.GN00 <- read_excel("Rawdata(DS)_KP.xls", sheet="LWdata",
 str(fish.GN00)
 
 GN2000 <- site.GN00 %>% 
-  left_join(fish.GN00, by=c("Site","Net"="Net No.")) %>% 
+  full_join(fish.GN00, by=c("Site","Net"="Net No."), multiple="all") %>% 
   mutate(year = 2000) %>% 
   mutate(set.hr = hour(`Time Set`), set.min = minute(`Time Set`),
          retrieve.hr = hour(`Time Pulled`),
@@ -142,7 +142,7 @@ GN <- rbind(GN2000,GN2008,GN2021) %>%
                         "Factor Ross"="Finlay","Blackwater"="Parsnip",
                         "Heather Point"="Parsnip"))
 # summary of catch per year per site and depth.
-xtabs(~sp+net.depth+Site+year, data=GN, na.action=na.omit,drop.unused.levels = T)
+xtabs(~sp+net.depth+Site+year, data=GN, na.action=na.omit,drop.unused.levels = F)
 #which nets had NFC:
 GN[which(is.na(GN$sp)),c("Site","start.datetime","Net","net.depth","FL")]
 #Number of each sp caught by year (note that NA = NFC)
@@ -163,7 +163,7 @@ GN.map <- mapview(list(GN.pts),
                   zcol="yearF", 
                   layer.name = "year")
 
-#print(GN.map)
+print(GN.map)
 
 
 #### GN CPUE ####
@@ -202,8 +202,8 @@ GN$Site[which(GN$Site %in% "Nabesche")] <- "Clearwater"
 # catch by effort with 130-160mm FL removed from ALL nets
 catch.per.effort <- GN %>% 
   filter(Site != "Adams Creek") %>% 
-  filter(net.type %in% c("RIC6","RIC7","RIC7-hole")) %>% #exclude inefficient sets of 2021
-  filter(FL < 130 | FL > 160) %>% #exclude FLs between130 and 160mm
+  #filter(net.type %in% c("RIC6","RIC7","RIC7-hole")) %>% #exclude inefficient sets of 2021
+  #filter(FL < 130 | FL > 160) %>% #exclude FLs between130 and 160mm
   group_by(year,Reach,Site,net.depth=round(net.depth,0),Net) %>% 
   summarize(start = first(start.datetime),end = first(end.datetime),
             KO=sum(sp%in%"KO"),LW=sum(sp%in%"LW")) %>% 
@@ -836,7 +836,7 @@ LW2000 <- rbind(agedLW2000,notagedLW2000)
     labs(title= "Lake Whitefish ages predicted for measured/unaged fish in 2000"))
 
 ggplot(LW2000)+
-  geom_point(aes(x=lcat10, y=age, col=mat))
+  geom_point(aes(x=age, y=lcat10, col=mat))
 
 GNTR <- full_join(GNTR[-which(GNTR$year %in% 2000 & GNTR$sp %in% "LW" & is.na(GNTR$age)),],
           notagedLW2000)
@@ -1052,6 +1052,48 @@ KOages.plot <- ggplot()+
 KOages.plot
 
 
+
+#### Length comparison - dbpop and fish catch ####
+
+#conversion formula 
+x=11.2
+log10(x)*23.909-68.216
+
+y=-43.1
+10^((y+68.216)/23.909)
+
+dbpop <- read_excel("Dbpop _Williston_2021_27.35dB.xlsx", 
+           sheet="Williston Dbpop ", range = c("A5:BE485"),
+           col_names = T) %>% 
+  mutate(Reach = ifelse(Transect %in% c(1:5),"Parsnip",
+                        ifelse(Transect %in% c(6:10,21),"Junction",
+                               ifelse(Transect %in% c(11:20),"Finlay",
+                                      ifelse(Transect %in% c(22:32),"Peace",NA)))))
+str(dbpop)
+
+dbpop.long <- dbpop %>% 
+  select(-c(low.end.noise, all.fish,big.fish,fry,onetothree,lg.fish,`NA`, habitat.strata)) %>% 
+  pivot_longer(-c(Reach,Transect, Depth), names_to = "db", values_to="tot.fish") 
+
+dbpop.reach <- dbpop.long %>% 
+  group_by(Reach, Depth, db) %>% 
+  summarize(tot.fish = sum(tot.fish)) %>% 
+  mutate(db = as.numeric(db),
+         FL = round(10^((db+68.216)/23.909)*10,2),
+         lcat10 = lencat(FL, w=10)) %>% 
+  filter(FL<= 300)
+
+ggplot(dbpop.reach)+
+  geom_bar(aes(x=lcat10, y=tot.fish, fill=Reach), stat="identity")+
+  scale_x_continuous(breaks= seq(0,400,25))
+
+GNTR.pelagics <- GNTR %>% 
+  filter(sp %in% c("KO","LW","PCC"))
+GNTR[which(GNTR$method %in% "GN"),]
+
+ggplot(GNTR[which(GNTR$method %in% "GN"),])+
+  geom_histogram(aes(x=lcat10, fill=reach, col=method))+
+  scale_x_continuous(limits = c(0,400),breaks= seq(0,400,25))
 
 
 
