@@ -14,14 +14,21 @@ fig_caption: yes
 always_allow_html: yes
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, echo=F, warning=F,message=F}
 library(tidyverse)
 library(lubridate)
 library(readxl)
 library(sf)
 library(mapview)
 
+options(knitr.table.format = function() {
+  if (knitr::is_latex_output())
+    "latex" else "pipe"
+})
+
 source("ATS2021.R")
+
+theme_set(new=theme_bw())
 
 ```
 
@@ -33,193 +40,133 @@ The 2000 gillnet survey occurred from 24 August to 3 September 2000, concurrent 
 
 ## 2008 GN survey (Sebastian et al. 2009)
 
-Gill netting in the 2008 survey occurred from 15-18 July only at three stations in the Peace Reach: the Forebay, Adams Creek and Nabesche (Sebastian et al. 2009). The earlier season timing of this survey was recommended in Sebastian et al. (2003) to help distinguish between Lake Whitefish and Kokanee, which they suggested may have slightly different temperature preferences and therefore be more easily distinguished in warmer water. The Forebay station was similar to the 2000 study and the Nabesche station was within 15 km of the Clearwater station from 2000, and Adams Creek is an additional location between these two. The gill net locations are therefore only representative of the eastern half of the Peace Reach. The Acoustic-Trawl survey occurred after the gill net survey (28 July to 1 August). 
+Gill netting in the 2008 survey occurred from 15-18 July only at three stations in the Peace Reach: the Forebay, Adams Creek and Nabesche (Sebastian et al. 2009). The earlier season timing of this survey was recommended in Sebastian et al. (2003) to help distinguish between Lake Whitefish and Kokanee, which they suggested may have slightly different temperature preferences and therefore be more easily distinguished in warmer water. The Forebay station was similar to the 2000 study and the Nabesche station was within 15 km of the Clearwater station from 2000, and Adams Creek is an additional location between these two. The gill net locations are therefore only representative of the eastern half of the Peace Reach. The Acoustic survey (no trawls were conductedin 2008) occurred after the gill net survey (28 July to 1 August). 
 
-The methods used in this survey intentionally mimicked the 2000 survey methods. At each station, three RIC6 gill nets were set parallel to shore in the deepest part of the channel, just below the surface and with a 100 m gap between the end of one net and the beginning of the next. Nets were set in the afternoon or evening and soaked overnight between 12 and 24 hours. Catch was recorded by net and station. Overall, there were no reported gear or sampling equipment malfunctions and little delay between net sets.  Age data was obtained through the collection of otoliths for Lake Whitefish and Bull Trout, and scale samples for Kokanee and Rainbow Trout.
+The methods used in this survey intentionally mimicked the 2000 survey methods: at each station, three RIC6 gill nets were set parallel to shore in the deepest part of the channel, just below the surface and with a 100 m gap between the end of one net and the beginning of the next. Nets were set in the afternoon or evening and soaked overnight between 12 and 24 hours. Catch was recorded by net and station. Overall, there were no reported gear or sampling equipment malfunctions and little delay between net sets. Age data was obtained through the collection of otoliths for Lake Whitefish and Bull Trout, and scale samples for Kokanee and Rainbow Trout.
 
 ## 2021 GN survey (O’Connor 2022)
 
-This gill net survey followed the depth-stratified methods used in Kinbasket and Revelstoke Reservoirs (Sebastian and Weir 2016) rather than surface-only sets, but had only one replicate at each station. Four RIC6 or RIC7 nets were set in continuous 5 m depth increments from top-of-the-net depths of 5 to 20 m (see O’Connor 2022 for diagram). Only five of seven stations were sampled effectively enough to be used: Teare Creek, Finlay Forks, Clearwater Creek, Blackwater Creek, and Heather Point, while Factor Ross and the Forebay were ineffective or omitted due to time constraints. The Teare Creek set was affected by windy conditions. The gill net survey ran from 3 August to 15 August but was not continuous due to equipment malfunctions. It overlapped the Acoustic-Trawl survey timing (2 to 14 August).
+This gill net survey followed the multiple depth methods used in Kinbasket and Revelstoke Reservoirs (Sebastian and Weir 2016) rather than surface-only sets, but had only one replicate per depth at each station. Four RIC6 or RIC7 nets were set in continuous 5 m depth increments from top-of-the-net depths of 5 to 20 m (see O’Connor 2022 for diagram). Only five of seven stations were sampled effectively enough to be used: Teare Creek, Finlay Forks, Clearwater Creek, Blackwater Creek, and Heather Point, while Factor Ross and the Forebay were ineffective or omitted due to time constraints. The Teare Creek set was affected by windy conditions. The gill net survey ran from 3 August to 15 August but was not continuous due to equipment malfunctions. It overlapped the Acoustic-Trawl survey timing (2 to 14 August).
 
-At each of the five stations, four 6- or 7-panel sinking RIC nets were set at depths from 5 m to 20 m (RIC6 mesh sizes 25, 38, 51, 64, 76, 89 mm and the RIC7 nets included an additional panel of 32 mm). The use of 6 versus 7 panel RIC nets was noted occasionally (e.g. at the Blackwater station 20 m depth and Heather Point 5 m depth) but perhaps not consistently at all stations; in cases with no specific mention, RIC7 nets were assumed. An additional two RIC7 nets were set at Teare Creek to cover the full 0 and 25 m strata (for a concurrent project, not reported on here), but the deepest 25 m net was ripped on retrieval and the 0 m net was ineffective since it curled in on itself sometime within the set due to a storm. At Heather Point, the 0 m stratum was sampled but not the 20 m stratum due to a higher fish layer observed in the Parsnip Reach. One large hole was reported in the net at the 5 m stratum at the Blackwater Station, but it is unclear whether this net was changed out or continued to be used throughout the rest of the survey. Fish weight was measured only to the nearest 5 g, making the weights for small fish too imprecise to use, though large fish weights (>300 g) were likely precise enough to be useful. Catch was recorded by net and station. Age information was obtained from otoliths collected from Kokanee, Lake Whitefish, Bull Trout and Lake Trout. 
+At each of the five stations, four 6- or 7-panel sinking RIC nets were set at depths from 5 m to 20 m (RIC6 mesh sizes 25, 38, 51, 64, 76, 89 mm and the RIC7 nets included an additional panel of 32 mm). The use of 6 versus 7 panel RIC nets was noted occasionally (e.g. at the Blackwater station 20 m depth and Heather Point 5 m depth) but perhaps not consistently at all stations; in cases with no specific mention, RIC7 nets were assumed. An additional two RIC7 nets were set at Teare Creek to cover the full 0 and 25 m strata (for a concurrent project, not reported on here), but the deepest 25 m net was ripped on retrieval and the 0 m net was ineffective since it curled in on itself sometime within the set due to a storm. At Heather Point, the 0 m stratum was sampled but not the 20 m stratum due to a shallower fish layer observed in the Parsnip Reach onteh acoustics. One large hole was reported in the net at the 5 m stratum at the Blackwater Station, but it is unclear whether this net was changed out or continued to be used throughout the rest of the survey. Fish weight was measured only to the nearest 5 g, making the weights for small fish too imprecise to use, though large fish weights (>300 g) were likely precise enough to be useful. Catch was recorded by net and station. Age information was obtained from otoliths collected from Kokanee, Lake Whitefish, Bull Trout and Lake Trout. 
 
 ## Data organization and analysis:
-Information from net sets with issues (2021: Forebay station, Teare Creek depths 0 and 25 m) were removed from any catch per unit effort comparisons, but the fish measurement information was retained where possible for comparisons of length, weight or length at age comparisons. Gill net and Trawl results from each of the three years were reorganized to match column names and values in Microsoft Excel.
+Information from net sets with issues (2021: Forebay station, Teare Creek depths 0 and 25 m) were removed from any catch per unit effort comparisons, but the fish measurement information was retained where possible for comparisons of length, weight or length at age comparisons. Gill net and Trawl results from each of the three years were reorganized to match column names and value types using Microsoft Excel.
 
-Where applicable, species and maturity codes follow BC Provincial standards (FIDQ 2023, RISC 1997). Analyses were conducted in R version 4.2.2 (R Core Team 2022). Packages tidyverse (Wickham et al. 2019), readxl (Wickham and Bryan 2022), lubridate (Grolemund and Wickham 2011) were used to load and organize data and other R packages are identified below for each analysis. RMarkdown (Allaire et al. 2023) and knitr (Xie 2023) were used to render some tables, text and figures.
+Where applicable, species and maturity codes follow BC Provincial standards (FIDQ 2023, RISC 1997). Analyses were conducted in R version 4.2.2 (R Core Team 2022). Packages tidyverse (Wickham et al. 2019), readxl (Wickham and Bryan 2022), lubridate (Grolemund and Wickham 2011) were used to load and organize data. Other R packages are identified below for each analysis. RMarkdown (Allaire et al. 2023) and knitr (Xie 2023) were used to render some tables, text and figures.
 
-## Investigating change in species composition
+## Investigating changes in species composition
 
 ### Catch per unit effort for gill nets: 
 
 Individual net dimensions were equivalent among years except that in 2021 most nets had an extra 32 mm panel targeting the 130 to 160 mm fork length. To compare the catch per unit effort (CPUE) among years, we removed that size range for all years and net types. Set and pull times were taken from the data on file and reports from previous years and may include inaccuracies (e.g. the mirrored set and pull times for nets 2 and 3 at Forebay station in 2008). CPUE is reported as catch per net and per hour of soak time (per net-hour).
 
-Because the methods among years differed by depth of gill net, CPUE comparisons among years were limited catch from net depths of 10 m and above, which was consistently above the thermocline during all sampling events. This excluded nets set at depths of 15 and 20 m in 2021 at all stations. Stations were limited to locations that were sampled in more than one year, which limited comparison to Teare Creek for the Finlay Reach (2000 and 2021), Finlay Forks at the Junction (2000 and 2021), Blackwater and Heather Point for the Parsnip Reach (2000 and 2021), Clearwater/Nabesche (2000, 2008 and 2021) and Forebay (2000 and 2008) for the Peace Reach. Clearwater (2000 and 2021) and Nabesche (2008) were considered equivalent in the CPUE comparison since the sites were within 15 km of each other. Linear regressions of Kokanee and Lake Whitefish CPUE with year, and interactions between year and station to see if there has been a detectable trend over time, and if that trend has differed by station. 
+Because the methods among years differed by depth of gill net, CPUE comparisons among years were limited catch from net depths of 10 m and above, which was consistently above the thermocline during all sampling events. This excluded nets set at depths of 15 and 20 m in 2021 at all stations. Stations were limited to locations that were sampled in more than one year, which limited comparison to Teare Creek for the Finlay Reach (2000 and 2021), Finlay Forks at the Junction (2000 and 2021), Blackwater and Heather Point for the Parsnip Reach (2000 and 2021), Clearwater/Nabesche (2000, 2008 and 2021) and the Forebay (2000 and 2008) for the Peace Reach. Clearwater (2000 and 2021) and Nabesche (2008) were considered equivalent in the CPUE comparison since the sites were within 15 km of each other. 
+
+Only Kokanee and Lake Whitefish were compared over the years, since all other fish were not as efficiently targetted by the pelagic nets (e.g. predators) or were too surface-oriented to be captured effectively in the nets at depth (e.g. insectivores such as Rainbow Trout). Linear regressions of Kokanee and Lake Whitefish CPUE, lenth-weight relationships and length-at-age were compared by year, with station or Reach added to explain spatial variation in the trends. Akaike's Information Criterion was used to select the best model in cases where multiple competing models were considered using the AICcmodavg package (Mazerolle 2020). 
+
 
 ### Fish condition and length-at-age
 
-Kokanee and Lake Whitefish condition (length-weight relationship) and length-at-age was compared between surveys and among reservoir reaches. The weight measurements from the gill net-caught fish in 2021 were too imprecise and appear biased (`r paste0("n= ",nrow(GNTR.predwts))`; uncalibrated spring scales) and were discarded. However, the trawl-caught fish (`r paste0("n= ",nrow(GNTR.measuredwts))`) were measured with higher precision and accuracy so those fish were comparable to previous years. The majority of trawl-caught fish were Kokanee, so the comparisons of length-weight and condition factor among years was limited to that species.
+Kokanee and Lake Whitefish condition (length-weight relationship) and length-at-age was compared between surveys and among reservoir reaches. The weight measurements from the gill net-caught fish in 2021 were too imprecise (`r paste0("n= ",nrow(GNTR.predwts))`; measured using uncalibrated spring scales) and were discarded. However, the trawl-caught fish in 2021 (`r paste0("n= ",nrow(GNTR.measuredwts))`) were measured with higher precision and accuracy so those fish were comparable to previous years. The majority of trawl-caught fish were Kokanee, so the comparisons of length-weight and condition factor among years was limited to that species.
 
-Length-at-age among years was also compared where possible, but no age data was available for the 2021 report (expected late March 2023). An Age-Length Key was constructed using 10 mm bins, fit to multinomial models using nnet (Venables and Ripley 2002) and compared using an ANOVA as described in Ogle (2016). In cases where only a subset of the range of fork lengths was aged within a year and species, ages were predicted from the remaining fork lengths using the Age-Length Key following Isermann and Knight (2005). Von Bertalanffy growth curve statistics were estimated for each year and species. 
+Length-at-age among years was also compared where possible, but no age data was available for this report (expected late March 2023). An Age-Length Key was constructed using 10 mm bins, fit to multinomial models using nnet (Venables and Ripley 2002) and compared using an ANOVA as described in Ogle (2016). In cases where only a subset of the range of fork lengths was aged within a year and species, ages were predicted from the remaining fork lengths using the Age-Length Key following Isermann and Knight (2005). Von Bertalanffy growth curve statistics were estimated for each year and species using FSA (Ogle et al. 2023).
 
 Unfortunately, Kokanee and Lake Whitefish ages from the gill netting in 2000 were discarded due to their questionable age results (`r paste0("n=",nrow(fish.GN00[fish.GN00$Species %in% "LW" & !is.na(fish.GN00$Age),])," LW")` and `r paste0("n=",nrow(fish.GN00[fish.GN00$Species %in% "KO" & !is.na(fish.GN00$Age),])," KO")`) as noted in Sebastian et al. (2003). There remains only `r paste0("n=",nrow(fish.TR00[fish.TR00$SPEC %in% "LW" & !is.na(fish.TR00$AGE),])," LW")`and `r paste0("n=",nrow(fish.TR00[fish.TR00$SPEC %in% "KO" & !is.na(fish.TR00$AGE),])," KO")` from trawl-caught fish for 2000. In 2008, only gill nets were used so the smaller sizes and ages were not sampled. 
-
-
 
 
 # Results
 
 ## Gillnetting locations (interactive map)
 
-```{r GN map, echo=F,fig.cap="Map of the starting point of gillnet locations by year. "}
-GN.map
+```{r GN map, echo=F,fig.cap="Map of the starting point of gillnet locations by year and the trawl transects by year. ", fig.width=7, fig.height=6}
+GNTR.map
 ```
 
 ## Summary of gillnet sets per year
 
 ```{r effort summary, echo=F, warning=F, message=F}
-knitr::kable(efforts.per.year)
+knitr::kable(efforts.per.year, digits = c(0,0,0,0,1,0,0,0,0,0,0),
+             col.names = c("Reach","Station","Year","# of Nets","Soak Time","KO","LW","PCC","RB","LT","BT"),
+             caption = "Summary of net sets and total catch by station and year. This includes only comparable sites and setsthat did not fail.", format="pipe") 
 ```
 
 
 ## GN CPUE - Making the Data Comparable
 
-First need to make sites and net catch comparable by making site names equivalent (i.e. Nabesche [2008] is close enough to Clearwater [2000&2021]; Adams Creek is a site not used outside of 2008), examine and remove the extra panel from the RIC7 nets used in 2021.
+To make sites and gear types comparable among years, we first made the site names equivalent (i.e. Clearwater/Nabesche; Adams Creek was only sampled in 2008 so was not used in this comparison). We then examined and removed the extra panel's catch from the RIC7 nets used in 2021. Since we did not record catch by panel, we excluded the catch that was targeted by that panel for all gear. In the 130 to 160 mm size range a total of `r nrow(RIC6.fish)` were removed from RIC6 catch, and `r nrow(RIC7.fish)` (all Kokanee) were removed from the RIC7 catch (see Appendix X for more detail). 
 
-**how many fish removed?
+After the sites were made equivalent and the extra panel target size was removed, we still have the problem that different depths were set each year - surface sets only for 2000 and 2008 and mostly 5 - 20 m depth for 2021. The distribution of depth catch by year is shown in figure *CPUE by depth KO* and *CPUE by depth LW*.
 
-Examine whether RIC6 nets caught fish in 130:160mm FL range:
-
-```{r RIC6 130 to 160mm ,echo=F, warning=F, message=F}
-
-knitr::kable(RIC6.fish)
-RIC6plot
-
-
-```
-
-And how many in th 130-160 mm range were caught by RIC7s (which were only used in 2021):
-
-```{r RIC7 130 to 160mm ,echo=F, warning=F, message=F}
-
-knitr::kable(RIC7.fish)
-RIC7plot
-
-```
-
-Given the greater catch of this size range in the RIC7s (as expected) we will remove this size range from both RIC6 and RIC7 for CPUE comparisons.
-
-### Kokanee and Lake Whitefish CPUE
-Kokanee and Lake Whitefish are likely the only two species that should be compared for CPUE (and note-only WITHIN species) since the rest are either two low density (the predators) or they seem to swim in schools (Peamouth).
-
-After the extra panel target size is removed and the sites are more or less made equivalent, we still have the problem that different depths were set each year - surface sets only for 2000 and 2008 and mostly 5 - 20 m depth for 2021. What this looks like when looking at CPUE by depth for Kokanee and Lake Whitefish:
-
-```{r CPUE by depth KO,echo=F, warning=F, message=F, fig.cap="CPUE (catch per net hour) by site, net depth and year for Kokanee."}
+```{r CPUE by depth KO, echo=F, warning=F, message=F, fig.cap="*CPUE by depth KO*: CPUE (catch per net hour) by site, net depth and year for Kokanee.",fig.width=7, fig.height=6}
 CPUEKOplot
 ```
 
-```{r CPUE by depth LW ,echo=F, warning=F, message=F, fig.cap="CPUE (catch per net hour) by site, net depth and year for Lake Whitefish"}
+```{r CPUE by depth LW ,echo=F, warning=F, message=F, fig.cap="*CPUE by depth LW*: CPUE (catch per net hour) by site, net depth and year for Lake Whitefish",fig.width=7, fig.height=6}
 CPUELWplot
 ```
 
-We see that there are not many cases of equivalency between years, where the same depths and sites were sampled. We can perhaps assume the 0-10 m net depths (above the thermocline in every year) are comparable, in which case the average CPUE for Kokanee and Lake Whitefish are:
+We see that there are not many cases of equivalency between years, where the same depths and sites were sampled. We instead assume that the 0-10 m net depths (above the thermocline in every year) are comparable. With only the CPUE using nets 10 m and above, the summary statistics of Kokanee and Lake Whitefish are shown in *Table CPUE above 10 m*. 
 
 ```{r CPUE above 10 m,echo=F, warning=F, message=F}
 
-knitr::kable(table.cpue.stats, digits=2,col.names = c("Reach", "Station","Year","# Nets",
+knitr::kable(table.cpue.stats, digits=2,
+             col.names = c("Reach", "Station","Year","# Nets",
                                                       "Mean Soak Time (hrs)","Mean KO",
                                                       "StDev KO", "Mean LW",
-                                                      "StDev LW"))
+                                                      "StDev LW"),
+             caption= "*Table CPUE above 10 m*: Summary statistics of Kokanee (KO) and Lake Whitefish (LW) CPUE (catch per net-hour) by Station and Year. StDev is standard deviation of the catch among nets.")
 
 ```
 
-If we pick only the sites with more than one year of netting data (Teare Creek, Finlay Forks, Blackwater, Heather Point, Clearwater/Nabesche, Forebay) and compare the CPUE over time:
+Linear regressions Kokanee and Lake Whitefish CPUE with year, year interacting with Reach and year interacting with Station were compared with AICc. Though the explained variation of the data was higher with Reach or Station was added, year alone had the lowest AICc and thus best explained the trend in Kokanee and Lake Whitefish (see Appendix X for detail). Overall, Kokanee CPUE increased slightly from 2000 to 2021 and Lake Whitefish decreased slightly in that same time (*Figure CPUE select sites*).
 
-```{r CPUE select sites, echo=F, warning=F, message=F, fig.cap="Mean CPUE (+/-95CI) for Kokanee (in purple) and Lake Whitefish (in blue) among years. Only sites with more than one year of sampling is shown. NOTE that each species should only be interpreted alone, not relative to the other species due to likely differences in vulnerability to the gillnets."}
-plot.cpue.KO
-plot.cpue.LW
+```{r CPUE select sites, echo=F, warning=F, message=F, fig.cap="*Figure CPUE select sites*: The linear regression of Kokanee CPUE for Kokanee (top) and Lake Whitefish (bottom) over years, with model results shown in the plot areas. Individual CPUE by Reach are represented by the point colour but were not included in the best model.",fig.width=7, fig.height=8}
+plot(plot.cpue.KOLW)
 ```
-
-## GN CPUE - Kokanee and Lake Whitefish over time
-
-We can check if there has been an overall trend in CPUE over the years sampled for Kokanee: 
-
-```{r LM KO,echo=F, warning=F, message=F}
-summary(lm.KOyr)
-```
-
-And for Lake Whitefish:
-
-```{r LM LW,echo=F, warning=F, message=F}
-summary(lm.LWyr)
-```
-
-An AIC comparison of models with year only, year * Reach and year * Site showed that the most parsimonious model with the year effect alone for both species.
-
 
 ## Changes in fish condition
 
-The assumptions behind these comparisons are that the methods used among years are comparable - i.e. that measurements were taking without error in each year and a sufficient sample was measured to cover the range of captured fish. This assumption, we suspect, was violated in the gill netting data in 2021 since the tools used to obtain weights were too coarse (hanging pesola scales, non-calibrated). We need to spend some time making the data comparable before proceeding:
+The fork lengths caught by both gear types by year for the dominant pelagic species is shown in Figure *FL by sp, method*.
 
-```{r length-weight KO by year, echo=F,warning=F, message=F, fig.cap="Kokanee length-weight measurements by year collected with gillnet (GN) and trawl (TR). Note that there was no trawling in 2008."}
-plotlength.weight.rawKO
-
+```{r FL catch by sp and method, echo=F, message=F, warning=F, fig.cap="*FL by sp, method*: Fork lengths of the dominant species caught in gill nets (GN) and trawl (TR) among years. The size range targetted by the 7th panel in the RIC7 nets used in 2021 are bounded by vertical lines in the gill net catch. Species KO = Kokanee, LW = Lake Whitefish, PCC = Peamouth Chub.",fig.width=7, fig.height=6}
+plot.FLspmethod
 ```
 
-We can see in the above plot that there is a much wider spread of Kokanee weights in the 2021 GN measurements and they are all slightly above previous years of catch, as well as some obvious outliers. This may be demonstrating a real change in the fish condition, except that if we compare to the trawl data from the same survey:
+The assumptions behind length-weight comparisons among years are that the methods were comparable and that measurements were taking without error in each year. From *Figure KO FLWT method 2021* we can see that there is a much wider spread of Kokanee weights in the 2021 gill net measurements, as well as some obvious outliers. As explained in the methods, these weights were removed and only trawl length-weights used for 2021. Because Kokanee were the majority of the catch in the trawl in 2021 we cannot compare Lake Whitefish length-weight relationships over time usin the 2021 survey.
 
-```{r length-weight KO by method, echo=F,warning=F, message=F}
+```{r length-weight KO by method, echo=F,warning=F, message=F, fig.cap= "*Figure KO FLWT method 2021*: Kokanee Fork Lengths (measured in mm and log10 transformed) and weights (measured in grams and log10 transformed) are compared by gear type (GN = Gill Net and TR = Trawl).", fig.width=7, fig.height=6}
 plotlength.weightKO.2021
 ```
+The length-weight relationship for Kokanee for the three years of sampling are seen in *Figure length-weigh KO*. 
 
-So unfortunately the Kokanee weights from the gill netting (`r paste0("n= ",nrow(GNTR.predwts))`) should be discarded entirely, since they are both inaccurate and imprecise. However, there is a large overlap in fork length sizes from the trawl catches of Kokanee (`r paste0("n= ",nrow(GNTR.measuredwts))`) in 2021, so the weights and individual weight error intervals can be predicted from the fork lengths following Ogle (2016):
-
-```{r predicted weights, echo=F, warning=F, message=F}
-plotpred.weightKO.2021
-```
-
-This can only be done for Kokanee since no other species was caught in great enough numbers in the trawl in 2021. A big assumption here is that the gear (gillnet vs trawl net) are collecting the same fish of the same fork length (e.g. gill net fish are not fatter or skinnier than trawl fish). We can see from the 2000 concurrent gillnet and trawl measurements for Kokanee that the Kokanee sizes overlap, so the assumption that the two methods select for the same condition of fish is met (though would be great to look at other water bodies with a bigger sample size - Kinbasket??). Note that the predicted fork lengths and weights exceed the measured lengths and weights so these should be interpreted with caution.
-
-```{r compare methods, echo=F,warning=F, message=F}
-plot.compare.methods
-
-```
-
-I am still pondering whether it is reasonable to use these predicted weights in a statistical comparison among years since they would underestimate the error, so for now I will leave them out, or point it out if I do use them. 
-
-```{r KO weight-length, echo=F, warning=F, message=F}
+```{r KO weight-length all, echo=F, warning=F, message=F, fig.cap="*Figure length-weight KO*: Fork length (mm) and weight (g) of Kokanee caught from 2000, 2008 (Peace gillnets only) and 2021 (gill net catch removed).", fig.width=7, fig.height=6}
 plot.FLwtbyyear
-paste("lm(logwt~logFL*yearF")
-car::Anova(fit1.ko)
+```
+Because 2008 did not have any trawl and the gill netted weights for 2021 had to be discarded, we are left with comparing Kokanee length-weight relationship from the trawl-caught fish in 2000 and 2021. A linear model using the log transformed relationship between length and weight for both years was compared for a changing slope using Anova from the library car (Fox and Weisberg 2019). From the interaction term, there was no difference in the length-weight relationship among years (*Figure FL-wt KO Trawl*).
+
+```{r , echo=F, message=F, warning=F, fig.cap="*Figure FL-wt KO Trawl*: The relationship between log-transformed fork length and weight in Kokanee caught by trawl in 2000 and 2021.", fig.width=7, fig.height=6}
+plot.FLwtKOinTR
 ```
 
-Though the plot of Kokanee length-weight above does not look like it is showing a difference between years, the overall ANOVA identifies a statistical difference between years, and possibly a difference between the slope for at least one year and the others. One issue is that in 2000 and 2021 there were not that many age-0s measured, so there is some potential leverage on the small end of Kokanee. In 2008 this size range of Kokanee was not even sampled since there was no trawl. If we chop the comparison at fish 100 mm and larger we can see if those points were really affecting the ANOVA. For this comparison we can use the predicted weights and no predicted weights to see how they differ.
 
-```{r KO weigth-length 100mm predicted, echo=F, warning=F, message=F}
-plot.FLwtbyyearbigpred
-car::Anova(fit2.ko)
+```{r lm KO weight-length Trawl,echo=F, warning=F, message=F }
+paste("lm(logwt~logFL*yearF) for Kokanee caught in the Trawls 2000 and 2021:")
+car::Anova(fit4.ko)
 ```
 
-```{r KO weigth-length 100mm, echo=F,warning=F, message=F}
-plot.FLwtbyyearbignopred
-car::Anova(fit3.ko)
-```
 
-We can see that the inclusion of the gillnetted predicted weights is pretty key to whether or not there is a change in Kokanee condition as fish get larger in 2021 (compared to 2000 and 2008 which have parallel slopes) but it appears that Kokanee are in a better condition across all sizes in 2000 (ie.there is a small but consistent statistical year effect during all test). 
 
-If you believe that the gill net fish Fork Lengths were measured without bias and that the predicted relationship between trawled fork length and weight holds for larger Kokanee, then it is possible that the abundant age 1 fish from 2021 have a lower condition due to density dependence and the larger fish are free of that. This is just a snapshot of the fish assemblage in a single year, so it is hard to know if this pattern would move through with the cohort, or if it is now a pattern every year. Next we can take a closer look at the condition factor at age using Fulton's K(using measured weights only).
 
-*NOTE:* need to do this for LW still.
+### STOP HERE 
+
+
 
 ## Fulton's K
 
 ```{r KO K freq, echo=F,warning=F, message=F}
 plot.Kbyagehistogram
 ```
-
-Some things to point out in the above histogram: 2000 has some very complex age structure and suspiciously old Kokanee (perhaps mis-ID'd rainbows?); 2008 had no trawls so the age 0 component is absent, which generally have a lower condition factor than the older ages in 2000 and 2021; 2021 had a dominant age 1 component (though ages are still preliminary) while 2008 had more 2s and 3s in the gillnet catch.
-
-Here is another way to look at this by plotting Fulton's K at each (jittered) age with a loess curve (note 2021 ages are still preliminary):
 
 ```{r KO K by age, echo=F, warning=F, message=F, fig.cap="Fulton's condition factor for Kokanee caught each year by the age they were classified into."}
 plot.Kagebyyear
@@ -232,6 +179,8 @@ plot.Kagebyyear.reach
 ```
 
 We can see that the pattern of 2008 having a lower K at age still holds even when only comparing within the Peace Reach. 
+
+
 
 ## Length at age
 
@@ -275,10 +224,65 @@ LWages.plot
 
 ```
 
-According to the ALK test above for Kokanee, there was a statistical difference among years. This is what it looks like in a mean length-at-age curve:
+According to the ALK test above for Kokanee, there was a statistical difference among years. To visualize this is a growth function, we can look at Von Bertalanffy parameters: Linf is the maximum mean fork length, K is how quickly the function approaches Linf, and L0 is the theoretical age at which length is equal to 0. 
 
 ```{r Von bert for KO, echo=F, warnings=F, message=F,fig.cap="Von Bertalanffy growth curves for Kokanee. The equations are showing the VB growth function parameters for each year, including Linf, k and L0."}
 KOages.plot
 ```
 
 Again we see that funky age old age structure for 2000, and the lack of small KO (due to lack of trawl) in 2008. However, the Linfinity has been potentially decreasing through the years? Will have to re-do once the age data are fixed.
+
+
+# Apppendix X 
+
+Fish caught in RIC6 nets in the 130 to 160mm size range that were removed for CPUE comparisons:
+
+```{r RIC6 130 to 160mm ,echo=F, warning=F, message=F}
+knitr::kable(RIC6.fish)
+RIC6plot
+
+```
+
+Fish caught in RIC7 nets in the 130 to 160mm size range that were removed for CPUE comparisons:
+
+```{r RIC7 130 to 160mm ,echo=F, warning=F, message=F}
+
+knitr::kable(RIC7.fish)
+RIC7plot
+
+```
+
+## GN CPUE - Kokanee and Lake Whitefish over time and by Station and Reach
+
+AIC comparisons of Kokanee CPUE trend models:
+
+```{r LM KO,echo=F, warning=F, message=F}
+table.KOAIC %>% 
+  as_tibble() %>% 
+  mutate(model = c("lm(KOcpue ~ year)",
+                   "lm(KOcpue ~ year*Reach)",
+                   "lm(KOcpue ~ year*Station)"))
+
+summary(lm.KOyr)
+```
+
+And for Lake Whitefish CPUE models:
+
+```{r LM LW,echo=F, warning=F, message=F}
+table.LWAIC %>% 
+  as_tibble() %>% 
+  mutate(model = c("lm(LWcpue ~ year)",
+                   "lm(LWcpue ~ year*Reach)",
+                   "lm(LWcpue ~ year*Station)"))
+
+summary(lm.LWyr)
+```
+
+```{r, echo=F, message=F, warning=F}
+plot.cpue.KObyreach
+plot.cpue.LWbyreach
+```
+
+
+
+
