@@ -17,7 +17,7 @@ library(nnet)
 library(car)
 
 options(warn = 1)
-mapviewOptions(vector.palette = colorRampPalette(c("white", "cornflowerblue", "grey60")))
+mapviewOptions(vector.palette = colorRampPalette(c("grey", "cornflowerblue", "purple")))
 
 
 #### Import GN Data ####
@@ -172,7 +172,7 @@ print(GN.map)
 #which fish are between 130 and 160 mm FL in RIC6 nets?
 
 (RIC6.fish <- GN %>% 
-  filter(net.type %in% "RIC6") %>% 
+  filter(net.type %in% "RIC6", sp %in% c("KO","LW")) %>% 
   filter(FL >130 & FL<160) %>% 
   select(year,Reach,Site,net.depth,net.type,sp,FL))
 RIC6plot <- ggplot(RIC6.fish)+
@@ -182,7 +182,7 @@ RIC6plot <- ggplot(RIC6.fish)+
 RIC6plot
 #and which fish are between 130 and 160 mm FL in RIC7 nets?
 (RIC7.fish <- GN %>% 
-  filter(net.type %in% c("RIC7","RIC7-hole","RIC7-inefficient")) %>% 
+  filter(net.type %in% c("RIC7","RIC7-hole","RIC7-inefficient"),sp %in% c("KO","LW")) %>% 
   filter(FL >130 & FL<160) %>% 
   select(year,Reach,Site,net.depth,net.type,sp,FL))
 
@@ -211,11 +211,22 @@ catch.per.effort <- GN %>%
   filter(exclude %in% "no") %>%  #exclude FLs between 130 and 160mm
   group_by(year,Reach,Site,net.depth=round(net.depth,0),Net) %>% 
   summarize(start = first(start.datetime),end = first(end.datetime),
-            KO=sum(sp%in%"KO"),LW=sum(sp%in%"LW")) %>% 
+            KO=sum(sp%in%"KO"),LW=sum(sp%in%"LW"),PCC=sum(sp%in%"PCC"),LT=sum(sp%in%"LT"),
+            RB=sum(sp%in%"RB"),BT=sum(sp%in%"BT")) %>% 
   mutate(soak.time = as.numeric(difftime(end,start,units="hours"))) %>% 
   mutate(cpue.KO=KO/soak.time, cpue.LW = LW/soak.time) %>% 
   mutate(reach.site = paste0(Reach,"-",Site))
 
+#summary of efforts per year
+
+efforts.per.year <- catch.per.effort %>%
+  filter(Site %in% c("Teare Creek","Finlay Forks","Blackwater",
+                     "Heather Point","Clearwater/Nabesche","Forebay")) %>%
+  group_by(Reach,Site,year) %>%
+  summarize(no.nets=length(unique(Net)), soak.time=sum((soak.time)),
+            KO=sum(KO),LW=sum(LW),PCC=sum(PCC),
+            RB=sum(RB),LT=sum(LT),BT=sum(BT))
+efforts.per.year
 
 
 CPUEKOplot <- ggplot(catch.per.effort)+
@@ -234,16 +245,7 @@ CPUELWplot <- ggplot(catch.per.effort)+
   labs(x="net depth (m)", fill="",y="LW catch per net hour")
 CPUELWplot
 
-#summary of efforts per year
 
-efforts.per.year <- catch.per.effort %>%
-  filter(Site %in% c("Teare Creek","Finlay Forks","Blackwater",
-                     "Heather Point","Clearwater/Nabesche","Forebay")) %>% 
-  group_by(Reach,Site,year) %>% 
-  summarize(no.nets=length(unique(Net)), KO=sum(KO),LW=sum(LW),
-            soak.time=sum((soak.time)),KOcpue = round(KO/soak.time,1),
-            LWcpue = round(LW/soak.time,1)) 
-efforts.per.year
 
 #summary of efforts per year from 0-10m depth
 efforts.per.year.under10 <- catch.per.effort %>% 
@@ -290,7 +292,7 @@ table.cpue.stats <- cpue.stats %>%
   select(Reach, Site, Year=year, Nets=nets, `Mean Soak Time (hrs)`=mn.soak.time,
          `Mean CPUE KO`=mn.cpue.KO, `StDev CPUE KO`=sd.cpue.KO,
          `Mean CPUE LW`=mn.cpue.LW,`StDev CPUE LW`=sd.cpue.LW)
-
+table.cpue.stats
 #remove Factor Ross site for trend analysis
 catch.per.effort <-catch.per.effort[which(catch.per.effort$Site != "Factor Ross"),]
 
@@ -317,9 +319,10 @@ plot.cpue.KO <- ggplot(catch.per.effort)+
   geom_point(aes(x=year,y=cpue.KO, col=Reach), size=2,alpha=0.5) +
   geom_smooth(aes(x=year,y=cpue.KO),method = "lm", se=T, alpha=0.25,col="purple")+
   geom_text(aes(x = min(year)+4,y = max(cpue.KO)), label = paste0("R-squ = ",round(summary(lm.KOyr)$r.squared,2)))+
-  geom_text(aes(x = min(year)+4,y = max(cpue.KO)-.1), label = paste0("KOcpue ~ year"))+
+  geom_text(aes(x = min(year)+4,y = max(cpue.KO)-.1), 
+            label = paste0("KOcpue ~ year(",round(summary(lm.KOyr)$coeff[2,1],3),")"))+
   geom_text(aes(x = min(year)+4,y = max(cpue.KO)-.2), label = paste0("p = ",round(summary(lm.KOyr)$coeff[2,4],3)))+
-  labs(y="Kokanee CPUE (fish/net hour)", x="Year")
+  labs(y="Kokanee CPUE (fish/net hour)", x="")
 plot.cpue.KO
 
 # linear regression by site for KO:
@@ -342,18 +345,23 @@ par(mfrow=c(2,2)) #look at residuals
 plot(lm.KOyrreach)
 
 plot.cpue.KObyreach <- ggplot(catch.per.effort[which(catch.per.effort$Site != "Factor Ross"),])+
-  geom_point(aes(x=year,y=cpue.KO), col="purple", size=2,alpha=0.5) +
+  geom_point(aes(x=year,y=cpue.KO, col=Site), size=2,alpha=0.5) +
   geom_smooth(aes(x=year,y=cpue.KO),method = "lm", se=F, alpha=0.25,col="purple")+
   facet_wrap(~Reach)+
   labs(y="Kokanee CPUE (fish/net hour)", x="Year")
 plot.cpue.KObyreach
 
 #which model is best?
-library(AICcmodavg)
+library(AICcmodavg); citation("AICcmodavg")
 models <- list(lm.KOyr, lm.KOyrsite, lm.KOyrreach)
-model.names <- c('lm.KOyr', 'lm.KOyrsite', 'lm.KOyrreach')
+model.namesKO <- c('lm.KOyr', 'lm.KOyrsite', 'lm.KOyrreach')
 
-aictab(cand.set = models, modnames = model.names)
+table.KOAIC <- aictab(cand.set = models, modnames = model.namesKO) 
+table.KOAIC %>% 
+  as_tibble() %>% 
+  mutate(model = c("lm(KOcpue ~ year)",
+                   "lm(KOcpue ~ year*Reach)",
+                    "lm(KOcpue ~ year*Station)"))
 
 
 #simple linear regression by year for LW
@@ -366,12 +374,15 @@ plot.cpue.LW <- ggplot(catch.per.effort)+
   geom_point(aes(x=year,y=cpue.LW, col=Reach),  size=2,alpha=0.5) +
   geom_smooth(aes(x=year,y=cpue.LW),method = "lm", se=T, col="blue")+
   geom_text(aes(x = max(year)-4,y = max(cpue.LW)), label = paste0("R-squ = ",round(summary(lm.LWyr)$r.squared,2)))+
-  geom_text(aes(x = max(year)-4,y = max(cpue.LW)-.1), label = paste0("LWcpue ~ year"))+
+  geom_text(aes(x = max(year)-4,y = max(cpue.LW)-.1), 
+            label = paste0("LWcpue ~ year(",round(summary(lm.LWyr)$coeff[2,1],3),")"))+
   geom_text(aes(x = max(year)-4,y = max(cpue.LW)-.2), label = paste0("p = ",round(summary(lm.LWyr)$coeff[2,4],3)))+
   labs(y="Lake Whitefish CPUE (fish/net hour)", x="Year")
 plot.cpue.LW
 
-
+library(gridExtra)
+plot.cpue.KOLW <- arrangeGrob(plot.cpue.KO,plot.cpue.LW)
+plot(plot.cpue.KOLW)
 
 # by site*yr for LW:
 lm.LWyrsite <- lm(data=catch.per.effort,formula= cpue.LW~year*Site)
@@ -405,8 +416,12 @@ plot.cpue.LWbyreach
 modelsLW <- list(lm.LWyr, lm.LWyrsite, lm.LWyrreach)
 model.namesLW <- c('lm.LWyr', 'lm.LWyrsite', 'lm.LWyrreach')
 
-aictab(cand.set = models, modnames = model.names)
-
+table.LWAIC <- aictab(cand.set = models, modnames = model.namesLW) 
+table.LWAIC %>% 
+  as_tibble() %>% 
+  mutate(model = c("lm(LWcpue ~ year)",
+                   "lm(LWcpue ~ year*Reach)",
+                   "lm(LWcpue ~ year*Station)"))
 
 
 
@@ -558,9 +573,13 @@ TR <- rbind(TR2000short,TR2021) %>%
 # TR maps #
 #could not F***ing figure pivot_longer in R, so exported, fixed and re-imported
 # to get lats and longs in same columns
+
+
+
 TRmapping <- read_excel("TR.transform.xls") %>% 
   mutate(yearF = as.factor(yearF)) 
 str(TRmapping)
+
 
 
 TR.pts <- st_as_sf(TRmapping, coords = c("Longitude","Latitude"),
@@ -576,18 +595,77 @@ TR.map <- mapview(list(TR.pts,TR.lines),
                   layer.name = "year",
                   legend = list(T, F))
 
-#print(TR.map)
-# fix points for clearwater trawls - off for both 2000 and 2021
+print(TR.map)
+# fix points for clearwater trawls - off for both 2000 and 2021-done, had to guess 
+
+
+# fix up transects from 2021
+transect.loc <- read_excel("Coordinates_2021WillistonLocations.xlsx", sheet="cleaned") %>% 
+  mutate(lat.deg = as.numeric(sub("\\s+\\S+$", '', easting))) %>% 
+  mutate(lat.minutes = floor(as.numeric(sub("^\\S+\\s+", '', easting)))) %>%
+  mutate(lat.seconds = (as.numeric(sub("^\\S+\\s+", '', easting))-lat.minutes)*60) %>% 
+  mutate(long.deg= as.numeric(sub("\\s+\\S+$", '',northing))*-1) %>% 
+  mutate(long.minutes= floor(as.numeric(sub("^\\S+\\s+", '',northing)))) %>% 
+  mutate(long.seconds = (as.numeric(sub("^\\S+\\s+", '', northing))-long.minutes)*60) %>% 
+  mutate(Latitude = lat.deg+(lat.minutes/60)+(lat.seconds/3600)) %>% 
+  mutate(Longitude = long.deg-(long.minutes/60)-(long.seconds/3600)) %>% 
+  select(-c(lat.deg,lat.minutes,lat.seconds,long.deg,long.minutes,long.seconds)) %>% 
+  filter(!is.na(Latitude))
+str(transect.loc)
+
+transect.lines <- st_as_sf(transect.loc,coords = c("Longitude", "Latitude"), crs=4326) %>%
+  filter(type %in% "transect") %>% 
+  group_by(label1) %>% 
+  dplyr::summarize() %>%
+  st_cast("LINESTRING")
+  
+mapview(transect.lines,
+        legend = F,
+        col.lines= c("black"))
+
+TR.lines<- TR.pts %>%
+  group_by(yearF, Station_ID, Trawl_num) %>%
+  dplyr::summarize() %>%
+  st_cast("LINESTRING")
+
+TR.map <- mapview(list(TR.pts,TR.lines), 
+                  zcol="yearF", 
+                  col.lines = c("snow", "grey"),
+                  layer.name = "year",
+                  legend = list(T, F))
+
 
 
 #### GNTR map ####
 GNTR.map <- mapview(list(GN.pts,TR.lines), 
                     zcol="yearF", 
-                    col.lines = c("snow", "grey"),
+                    col.lines = c("snow", "red"),
                     layer.name = "GNyear",
                     legend = list(T, F),
                     lwd=2) 
-#print(GNTR.map)
+print(GNTR.map)
+
+
+
+manmade.wbdy <- st_read(dsn="./FWA_MANMADE_WATERBODIES_POLY/FWMNMDWTRB_polygon.shp")
+watershed50 <- st_read(dsn="./WDIC_WATERBODY_POLY_SVW/WSA_WB_PLY_polygon.shp")
+st_cast(watershed50, "POLYGON")
+
+watershed50 <- st_transform(watershed50, crs=st_crs(TR.lines)) 
+willi.bbox <- st_bbox(watershed50)
+
+length(watershed50)
+williston <- watershed50[which(watershed50$WTRBD_ID %in% "00001PARA"),]
+
+library(leaflet)
+willi.base <- leaflet() %>% 
+  addProviderTiles("OpenStreetMap", group="OpenStreetMap") %>% 
+  addPolygons(data=williston, color="blue")
+  
+willi.GNTR <- willi.base %>% 
+  addMarkers(data=GN.pts) %>% 
+  addPolylines(data=TR.lines)
+willi.GNTR
 
 
 
@@ -683,35 +761,74 @@ GNTR <- rbind(GNshort,TRshort) %>%
   mutate(logFL = log10(FL), logwt = log10(wt)) %>% 
   mutate(lcat10=lencat(FL, w=10)) #categorize age into 10 mm groups
 
+
+### KinRev GN and TR caught fish #####
 # check briefly if there is a difference between GN and trawl-caught fish in Kin/rev data:
 kinrev <- read_excel("KinRev trawl and gillnet database.xlsx", sheet="Database ") %>% 
   mutate(logwt = log10(Weight), logFL = log10(Length)) %>% 
+  filter(Yr %in% c(2013,2014)) %>%  #exclude 2013 & 2014 b/ccaught abunch of wood armfish in trawl
   filter(Sp %in% "KO") %>% 
-  select(Lake, Yr,Method, Sp, Mat, Age, FL=Length, wt = Weight, logFL,logwt)
+  select(Lake, Yr, Stname, Method, Sp, Mat, Age, FL=Length, wt = Weight, logFL,logwt)
+
 str(kinrev)
 range(kinrev$FL, na.rm = T)
-unique(kinrev$Yr)
+table(kinrev$Stname)
 
 kinrev.lgfish <- kinrev %>% 
-  filter(Lake %in% "Kinbasket", Yr >= 2010, FL >100)
-  
-ggplot(kinrev.lgfish)+
+  filter(Lake %in% "Kinbasket", FL >100)#Yr >= 2010, 
+kinrev.recentyrs <- kinrev %>% 
+  filter(Lake %in% "Kinbasket")
+
+
+plot.kinrev1 <- ggplot(kinrev.recentyrs)+
   geom_point(aes(x=logFL, y=logwt, col=Method), alpha =0.1)+
   geom_smooth(aes(x=logFL, y=logwt, col=Method), method="lm", se=T)+
-  facet_wrap(~Lake)
+  facet_wrap(~Lake)+
+  labs(x="log10(Fork Length)", y="log10(Weight)", title = "KO in Kinbasket 2013 and 2014")
+plot.kinrev1
+#ggsave(plot.kinrev1, filename = "plot.kinrev1.png", device = "png", width = 6, height=5)
 
-
-fitflwt.kinrev <- lm(logwt~logFL+Method, data=kinrev.lgfish) #this is the fit of the 2021 length-weight from trawl
-summary(fitflwt.kinrev)
+fitflwt.kinrev1 <- lm(logwt~logFL+Method, data=kinrev.recentyrs) #this is the fit of the 2021 length-weight from trawl
+summary(fitflwt.kinrev1)
 par(mfrow = c(2, 2))
-plot(fitflwt.kinrev) #check for length-wt outliers in residual plot
+plot(fitflwt.kinrev1) #check for length-wt outliers in residual plot
 
-#Well... kinda looks like the trawl-caught fish are fatter at large FLs comparedto GN-caught fish
-# so I shouldn't assume the trawl and gillnet have the same relationship.
+#only 100mm+ fish:
+plot.kinrev2 <- ggplot(kinrev.lgfish)+
+  geom_point(aes(x=logFL, y=logwt, col=Method), alpha =0.1)+
+  geom_smooth(aes(x=logFL, y=logwt, col=Method), method="lm", se=T)+
+  facet_wrap(~Lake)+
+  labs(x="log10(Fork Length)", y="log10(Weight)", title = "KO in Kinbasket >100mm, 2013 2014")
+plot.kinrev2
+#ggsave(plot.kinrev2, filename = "plot.kinrev2.png", device = "png", width = 6, height=5)
+
+fitflwt.kinrev2 <- lm(logwt~logFL+Method, data=kinrev.lgfish) #this is the fit of the 2021 length-weight from trawl
+summary(fitflwt.kinrev2)
+par(mfrow = c(2,2))
+plot(fitflwt.kinrev2) #check for length-wt outliers or leverage in residual plot
+
+#Well... kinda looks like the trawl-caught fish are fatter at large FLs compared to GN-caught fish
+# so I shouldn't assume the trawl and gill net have the same relationship. 
+# Discarded that component of report but see below for calc of ave wts for BIOMASS calc
 
 
 
+## FLs caught by method and year. Point out the FL range that is added by 7th panel
 
+str(GNTR)
+unique(GNTR$sp)
+
+RIC7.range <- data.frame(lower= 130, upper=160, method="GN")
+
+GNTR[GNTR$sp %in% c("KO","LW","PCC"),]
+plot.FLspmethod <- ggplot(data=GNTR[GNTR$sp %in% c("KO","LW","PCC"),])+
+  geom_histogram(aes(x=FL, fill=sp), position="dodge")+
+  geom_vline(data=RIC7.range, aes(xintercept=c(lower)))+
+  geom_vline(data=RIC7.range, aes(xintercept=c(upper)))+
+  facet_grid(year~method)+
+  scale_x_continuous(breaks = seq(0,350,50))+
+  labs(x="Fork Length (mm)", fill="species")
+plot.FLspmethod
 
 #### FL-wt comparisons #### 
 #check for changes in fish condition among years 
@@ -733,7 +850,7 @@ GNTR %>% #KO caught at Finlay Forks FL 141, wt 70
 
 (plotlength.weightKO.2021 <- ggplot(GNTR[which(GNTR$sp %in% "KO"&GNTR$year %in% 2021),])+
     geom_point(aes(x=logFL, y=logwt, col=method))+
-  labs(title="KO all length-weights in 2021 by collection method"))
+  labs(y="Log10(Fork Length)", x="Log10(Weight)"))#title="KO all length-weights in 2021 by collection method"))
 
 #it there good overlap between methods (GN and TR) in KO fish condition?
 
@@ -743,6 +860,7 @@ plot.compare.methods <- ggplot(GNTR[which(GNTR$sp %in% c("KO","LW")& GNTR$year %
   facet_wrap(~sp)+
   labs(title="2000 compare KO and LW caught in GN and TR")
 plot.compare.methods
+
 
 
 # eject 2021 GN weights for KO and insert predicted weights from TR
@@ -759,7 +877,10 @@ GNTR.predwts <- GNTR %>%
 nrow(GNTR.predwts) #138 KO weights need to be predicted
 
 
-fitflwt.ko21 <- lm(logwt~logFL, data=GNTR.measuredwts) #this is the fit of the 2021 length-weight from trawl
+#this is now defunct but will leave:
+
+
+fitflwt.ko21 <- lm(logwt~logFL, data=GNTR.measuredwts[GNTR.measuredwts$FL>100,]) #
 summary(fitflwt.ko21)
 par(mfrow = c(2, 2))
 plot(fitflwt.ko21) #check for length-wt outliers in residual plot
@@ -768,20 +889,58 @@ pred.logwt <- predict(fitflwt.ko21, GNTR.predwts, interval ="prediction") #this 
 cf <- logbtcf(fitflwt.ko21, 10)
 back.trans <- cf*10^pred.logwt
 
-GNTR.predwts$wt <- as.numeric(back.trans[,1])
-GNTR.predwts$pred.wt.lwr <- back.trans[,2]
-GNTR.predwts$pred.wt.upr <- back.trans[,3]
+#totally separate for BIOMASS estimate by TW - need ave weight per FL
+#add in the collection method term from the Kinbasket reln:
+summary(fitflwt.kinrev2)
+fitflwt.kinrev2$coefficients[3] #about -0.0226 slope for GN weights compared with TR weights
 
-GNTRwts <- GNTR.measuredwts %>% 
-    full_join(GNTR.predwts) %>% 
-  mutate(logwt = log10(wt))
+fitflwt.koKIN<- lm(logwt~logFL, data=GNTR.measuredwts[GNTR.measuredwts$FL>100,])
+summary(fitflwt.koKIN)
 
-(plotpred.weightKO.2021 <- ggplot(GNTRwts)+
-    geom_errorbar(aes(x=logFL, ymin=log10(pred.wt.lwr), 
-                      ymax=log10(pred.wt.upr)), col="light blue")+
+#throw out all variability, just looking to calc ave weight at given length using formula
+cf <- logbtcf(fitflwt.koKIN, 10)
+
+GNTR.prewts.KINave <- GNTR.predwts %>% 
+  mutate(logwt = fitflwt.koKIN$coeff[1]+
+           logFL*(fitflwt.koKIN$coeff[2]-as.numeric(fitflwt.kinrev2$coefficients[3]))) %>% 
+  mutate(wt = cf*10^logwt) %>% 
+  full_join(GNTR.measuredwts)
+
+
+plotpred.weightKO.2021KIN <- ggplot(GNTR.prewts.KINave)+
     geom_point(aes(x=logFL, y=logwt, col=wt.pred))+
+    geom_smooth(aes(x=logFL, y=logwt, col=wt.pred), method="lm")+
     labs(title="KO measured and predicted weights in 2021",
-         y="log weight (+/- 95% CI)"))
+         y="log weight (+/- 95% CI)")
+plotpred.weightKO.2021KIN
+
+ggsave(plot = plotpred.weightKO.2021KIN, filename = "plotpred.weightKO.2021KINave.png",
+       device="png", width=6, height=5)
+write_csv(GNTR.prewts.KINave, "GNTR.predictedwts.KINave.csv")
+
+# check difference between LW and KO FL-wt relationship for BIOMASS
+GNTR.LWKO <- GNTR %>% 
+  mutate(wt = ifelse(year %in% 2021 & method %in% "GN", NA, wt), logwt = log10(wt),
+         k=100000*(wt/FL^3)) %>% 
+  filter(sp %in% c("LW","KO"))
+GNTR.LWKOlrg <- GNTR.LWKO %>% 
+  filter(FL > 100, year %in% c(2000,2008))
+
+plot.LWKOflwtcompare <- ggplot(GNTR.LWKOlrg)+
+  geom_point(aes(x=logFL, y=logwt, col=sp))+
+  geom_smooth(aes(x=logFL, y=logwt, col=sp), method="lm")+
+  facet_grid(~year+method)
+plot.LWKOflwtcompare
+ggsave(plot.LWKOflwtcompare, filename = "plot.LWKOflwtcompare.png", device = "png",
+       width=6, height=5)
+
+
+lmKOLWlrg <- lm(logwt~logFL*sp, data=GNTR.LWKOlrg)
+summary(lmKOLWlrg)
+
+summary(lm(logwt~logFL, data=GNTR.LWKOlrg[GNTR.LWKOlrg$sp %in% "LW",]))
+summary(lm(logwt~logFL, data=GNTR.LWKOlrg[GNTR.LWKOlrg$sp %in% "KO",]))
+
 
 #viewed together with other years of data:
 
@@ -799,28 +958,24 @@ ggplot(GNTRwts.allyrsKO)+
   geom_point(aes(x=logFL, y=logwt, col=yearF))+
   geom_smooth(aes(x=logFL, y=logwt, col=yearF), method="lm")
 
-# only measured weights
-(plot.FLwtbyyear <- ggplot(GNTRwts.allyrsKO[which(GNTRwts.allyrsKO$wt.pred %in% "measured"),])+
-  geom_errorbar(aes(x=logFL, ymin=log10(pred.wt.lwr), 
-                    ymax=log10(pred.wt.upr)), col="light blue")+
-  geom_point(aes(x=logFL, y=logwt, col=yearF))+
-  geom_smooth(aes(x=logFL, y=logwt, col=yearF), linewidth=0.75,method="lm", se=T)+
-  labs(title="Compare weight and fork length by year for Kokanee"))
+# only measured weights - this will be used from now on:
+plot.FLwtbyyear <- ggplot(GNTRwts.allyrsKO[which(GNTRwts.allyrsKO$wt.pred %in% "measured"),])+
+  #geom_errorbar(aes(x=logFL, ymin=log10(pred.wt.lwr), 
+  #                  ymax=log10(pred.wt.upr)), col="light blue")+
+  geom_point(aes( x=FL,y=wt, col=yearF))+
+  #geom_smooth(aes(x=logFL, y=logwt, col=yearF), linewidth=0.75,method="lm", se=T)+
+  labs(y="Weight (g)", x="Fork Length (mm)", col="Year") #title="Compare weight and fork length by year for Kokanee"))
+plot.FLwtbyyear
 
 #compare slopes between years (fit1 does not use predicted weights)
-
 fit1.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrsKO[which(GNTRwts.allyrsKO$wt.pred %in% "measured"),])
 car::Anova(fit1.ko)
-
-
-
 
 
 #truncate to larger sizes only (>100mm):
 #actually instead of using the size cut-off, maybe should use GN v TR?
 #In the end I kept the size cut-off since there were only really GN fish over
 # this size range, so 2021 would have had to be left out.
-
 
 GNTRwts.allyrsbigKO <- GNTRwts.allyrsKO %>%
   filter(logFL>2)
@@ -842,26 +997,59 @@ GNTRwts.allyrsbigKO <- GNTRwts.allyrsKO %>%
 # car::Anova(fit2.ko)
 
 
-
 # only bigger KO (>100mm) - NOT using predicted weights
-(plot.FLwtbyyearbignopred <- ggplot(GNTRwts.allyrsbigKO[which(GNTRwts.allyrsbigKO$wt.pred %in% "measured"),])+
+plot.FLwtbyyearbignopred <- ggplot(GNTRwts.allyrsbigKO[which(GNTRwts.allyrsbigKO$wt.pred %in% "measured"),])+
     geom_point(aes(x=logFL, y=logwt, col=yearF))+
     geom_smooth(aes(x=logFL, y=logwt, col=yearF), linewidth=0.75,method="lm", se=T)+
-  labs(title="Compare weight and fork length by year for Kokanee >100mm"))
-
+  labs(x="log10(Fork Length)", y="Log10(Weight)", col="Year") #title="Compare weight and fork length by year for Kokanee >100mm")
+plot.FLwtbyyearbignopred
 
 #fit3 does not use predicted weights and fish >100mm
 fit3.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrsbigKO[which(GNTRwts.allyrsbigKO$wt.pred %in% "measured"),])
 car::Anova(fit3.ko)
 
+ levels(GNTRwts.allyrsbigKO$yearF)
+ 
+# Compare 2000 and 2021 Trawl-caught fish only:
+ 
+ str(GNTR)
+TR.KO<- TR %>% #measured KO only
+  filter(sp %in% "KO") %>%  
+  mutate(logFL = log10(FL),logwt = log10(wt), yearF = as.factor(year))
+ 
+plot.FLwtKOinTR <- ggplot(TR.KO)+
+   geom_point(aes(x=logFL, y=logwt, col=yearF))+
+   geom_smooth(aes(x=logFL, y=logwt, col=yearF), linewidth=0.75,method="lm", se=T)+
+   labs(x="log10(Fork Length)", y="Log10(Weight)", col="Year")
+plot.FLwtKOinTR 
 
-#### Compare Fulton's K ####
+fit4.ko <- lm(logwt~logFL*yearF, data=TR.KO)
+car::Anova(fit4.ko)
+
+ # only bigger KO (>100mm) - NOT using predicted weights
+ plot.FLwtbyyearbignopred <- ggplot(GNTRwts.allyrsbigKO[which(GNTRwts.allyrsbigKO$wt.pred %in% "measured"),])+
+   geom_point(aes(x=logFL, y=logwt, col=yearF))+
+   geom_smooth(aes(x=logFL, y=logwt, col=yearF), linewidth=0.75,method="lm", se=T)+
+   labs(x="log10(Fork Length)", y="Log10(Weight)", col="Year") #title="Compare weight and fork length by year for Kokanee >100mm")
+ plot.FLwtbyyearbignopred
+ 
+ #fit3 does not use predicted weights and fish >100mm
+ fit3.ko <- lm(logwt~logFL*yearF, data=GNTRwts.allyrsbigKO[which(GNTRwts.allyrsbigKO$wt.pred %in% "measured"),])
+ car::Anova(fit3.ko)
+ 
+# I am somewhat suspicious of the 2000 L-w relationship here... maybe the gn-caught fish really were RB...
 
 
-(plot.Kbyagehistogram <-ggplot(GNTRwts.allyrsKO[GNTRwts.allyrsKO$wt.pred %in% "measured",])+
+
+ 
+  
+ #### Compare Fulton's K ####
+
+plot.Kbyagehistogram <-ggplot(GNTRwts.allyrsKO[GNTRwts.allyrsKO$wt.pred %in% "measured",])+
   geom_histogram(aes(x=k, fill=as.factor(age)), col="black", binwidth=0.02)+
-  facet_wrap(~yearF, nrow=3))
-
+  facet_grid(yearF~method)
+plot.Kbyagehistogram
+ 
 GNTR.KOmeasured <- GNTRwts.allyrsKO %>% 
   filter(wt.pred %in% "measured", age >0) #exclude age 0s
 
@@ -992,8 +1180,7 @@ anova(mod1LW,mod2LW)
 mod1KO <- nnet::multinom(age~lcat10,data=GNTR[which(GNTR$sp %in% "KO"),],maxit=500)
 mod2KO <- nnet::multinom(age~lcat10*yearF,data=GNTR[which(GNTR$sp %in% "KO"),],maxit=500)
 
-anova(mod1KO,mod2KO) #signif difference among years
-
+anova(mod1KO,mod2KO) #signif difference among years, but 2000 data are whacky
 
 #KO ages from trawl and gillnet combined:
 ggplot(GNTR[which(GNTR$sp %in%"KO"),]) +
@@ -1103,6 +1290,7 @@ LWages.plot
 
 
 #KO (2021 age estimated at the moment)
+
 KO2000 <- GNTR %>%
   filter(year %in% 2000, sp %in% "KO")
 
@@ -1199,7 +1387,7 @@ KOages.plot
 x=11.2
 log10(x)*23.909-68.216
 
-y=-43.1
+y=-32
 10^((y+68.216)/23.909)
 
 dbpop <- read_excel("Dbpop _Williston_2021_27.35dB.xlsx", 
@@ -1229,11 +1417,16 @@ ggplot(dbpop.reach)+
 
 GNTR.pelagics <- GNTR %>% 
   filter(sp %in% c("KO","LW","PCC"))
+
 GNTR[which(GNTR$method %in% "GN"),]
 
 ggplot(GNTR[which(GNTR$method %in% "GN"),])+
   geom_histogram(aes(x=lcat10, fill=reach, col=method))+
   scale_x_continuous(limits = c(0,400),breaks= seq(0,400,25))
+
+
+
+
 
 
 
